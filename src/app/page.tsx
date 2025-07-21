@@ -160,17 +160,18 @@ export default function ScribePage() {
       setLoaderMessage('Saving to history...');
       setLoaderProgress(90);
 
-      const historyPayload = {
+      const historyPayload: any = {
         fileName: file.name,
         transcription: initialTranscription,
-        correctedTranscription,
-        summary,
-        changelog,
         options: {
           ...options,
           referenceFiles: options.referenceFiles.map(f => ({ name: f.name, size: f.size })),
         },
       };
+
+      if (correctedTranscription) historyPayload.correctedTranscription = correctedTranscription;
+      if (summary) historyPayload.summary = summary;
+      if (changelog) historyPayload.changelog = changelog;
 
       await addHistoryItemToFirestore(historyPayload);
 
