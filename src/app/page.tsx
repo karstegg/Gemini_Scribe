@@ -46,18 +46,18 @@ function useStreamedText(
   onStreamEnd: () => void
 ) {
   const [text, setText] = useState('');
-  const hasRun = useRef(false);
+  const streamReadRef = useRef(false);
 
   useEffect(() => {
-    if (!stream || hasRun.current) {
+    if (!stream || streamReadRef.current) {
       return;
     }
-    hasRun.current = true;
+    streamReadRef.current = true;
+    
+    const readStream = async () => {
+      const decoder = new TextDecoder();
+      const reader = stream.getReader();
 
-    const reader = stream.getReader();
-    const decoder = new TextDecoder();
-
-    const read = async () => {
       try {
         while (true) {
           const { value, done } = await reader.read();
@@ -67,19 +67,15 @@ function useStreamedText(
           setText((prev) => prev + decoder.decode(value, { stream: true }));
         }
       } catch (error) {
-        console.error("Stream reading was cancelled or an error occurred:", error);
+        console.error("Stream reading failed:", error);
       } finally {
+        reader.releaseLock();
         onStreamEnd();
       }
     };
 
-    read();
-
-    return () => {
-      reader.cancel().catch(() => {});
-    };
+    readStream();
     
-  // We only want this effect to run once when the stream is available.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stream]);
 
