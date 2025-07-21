@@ -1,13 +1,16 @@
 import { collection, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, onSnapshot, type Unsubscribe } from "firebase/firestore";
-import { db, auth } from "./firebase";
+import { db, auth, authenticateUser } from "./firebase";
 import type { HistoryItem } from "@/types";
 
 type HistoryWithoutId = Omit<HistoryItem, 'id' | 'createdAt'>;
 
 export const addHistoryItemToFirestore = async (item: HistoryWithoutId) => {
-  if (!db || !auth?.currentUser) throw new Error("Firestore is not initialized or user is not authenticated.");
+  if (!db || !auth) throw new Error("Firestore is not initialized.");
   
-  const historyCollection = collection(db, `users/${auth.currentUser.uid}/history`);
+  const user = await authenticateUser();
+  if (!user) throw new Error("User is not authenticated.");
+
+  const historyCollection = collection(db, `users/${user.uid}/history`);
   return await addDoc(historyCollection, {
     ...item,
     createdAt: serverTimestamp()
