@@ -38,3 +38,9 @@ export type GlobalSettings = {
   standardTranscriptionInstructions: string;
   reviewSettings: ReviewSettings;
 };
+
+export type ProcessingLog = {
+  message: string;
+  status: 'pending' | 'in_progress' | 'done' | 'error';
+  timestamp: Date;
+};

@@ -28,7 +28,7 @@ import { addHistoryItemToFirestore, deleteHistoryItemFromFirestore } from '@/lib
 import { getSettings } from '@/lib/settingsService';
 import { useHistory } from '@/hooks/useHistory';
 import { fileToBase64 } from '@/lib/utils';
-import type { View, Status, TranscriptionOptions, HistoryItem } from '@/types';
+import type { View, Status, TranscriptionOptions, HistoryItem, ProcessingLog } from '@/types';
 
 const formSchema = z.object({
   subject: z.string().min(1, 'Subject is required.'),
@@ -50,8 +50,7 @@ export default function ScribePage() {
 
   const [file, setFile] = useState<File | null>(null);
   const [transcription, setTranscription] = useState('');
-  const [loaderMessage, setLoaderMessage] = useState('');
-  const [loaderProgress, setLoaderProgress] = useState(0);
+  const [processingLogs, setProcessingLogs] = useState<ProcessingLog[]>([]);
 
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<HistoryItem | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -92,6 +91,7 @@ export default function ScribePage() {
     setTranscription('');
     setStatus('idle');
     setError(null);
+    setProcessingLogs([]);
     form.reset({
       model: 'gemini-2.5-pro',
       subject: '',
@@ -109,10 +109,37 @@ export default function ScribePage() {
     setStatus('processing');
     setError(null);
 
+    const initialLogs: ProcessingLog[] = [
+      { message: 'Preparing audio...', status: 'in_progress', timestamp: new Date() },
+      { message: 'Transcribing audio file', status: 'pending', timestamp: new Date() },
+    ];
+    if (options.review) {
+      initialLogs.push({ message: 'AI review & correction', status: 'pending', timestamp: new Date() });
+    }
+    if (options.generateSummary) {
+      initialLogs.push({ message: 'Generating summary', status: 'pending', timestamp: new Date() });
+    }
+    initialLogs.push({ message: 'Saving to history', status: 'pending', timestamp: new Date() });
+    setProcessingLogs(initialLogs);
+
+    const updateLog = (message: string, status: 'done' | 'error', nextMessage?: string) => {
+      setProcessingLogs(prevLogs => {
+        const newLogs = prevLogs.map(log => 
+          log.message === message ? { ...log, status } : log
+        );
+        if (nextMessage) {
+          const nextLogIndex = newLogs.findIndex(log => log.message === nextMessage);
+          if (nextLogIndex > -1) {
+            newLogs[nextLogIndex] = { ...newLogs[nextLogIndex], status: 'in_progress' };
+          }
+        }
+        return newLogs;
+      });
+    };
+
     try {
-      setLoaderMessage('Preparing audio...');
-      setLoaderProgress(10);
       const audioDataUri = await fileToBase64(file);
+      updateLog('Preparing audio...', 'done', 'Transcribing audio file');
       
       let finalInstructions = options.transcriptionInstructions || '';
       const globalSettings = getSettings();
@@ -126,9 +153,6 @@ export default function ScribePage() {
         finalInstructions += '\nPlease include timestamps for key sections or speaker changes.';
       }
 
-      setLoaderMessage('Transcribing...');
-      setLoaderProgress(30);
-
       const { transcription: initialTranscription } = await transcribeAudio({
         audioDataUri,
         model: options.model,
@@ -138,17 +162,17 @@ export default function ScribePage() {
         addTimestamps: options.addTimestamps,
         generateSummary: options.generateSummary,
         review: options.review,
-        referenceFiles: [], // Content is added to prompt, not passed as files
+        referenceFiles: [], 
       });
       
       setTranscription(initialTranscription);
+      updateLog('Transcribing audio file', 'done', options.review ? 'AI review & correction' : options.generateSummary ? 'Generating summary' : 'Saving to history');
+      
       let correctedTranscription: string | undefined;
       let changelog: string | undefined;
       let summary: string | undefined;
 
       if (options.review) {
-        setLoaderMessage('Reviewing transcription...');
-        setLoaderProgress(60);
         const reviewSettings = getSettings().reviewSettings;
         const reviewResult = await reviewAndCorrectTranscription({
           transcription: initialTranscription,
@@ -156,18 +180,15 @@ export default function ScribePage() {
         });
         correctedTranscription = reviewResult.correctedTranscription;
         changelog = reviewResult.changelog;
+        updateLog('AI review & correction', 'done', options.generateSummary ? 'Generating summary' : 'Saving to history');
       }
       
       const textForSummary = correctedTranscription || initialTranscription;
       if (options.generateSummary) {
-        setLoaderMessage('Generating summary...');
-        setLoaderProgress(80);
         const summaryResult = await summarizeTranscription({ transcription: textForSummary });
         summary = summaryResult.summary;
+        updateLog('Generating summary', 'done', 'Saving to history');
       }
-
-      setLoaderMessage('Saving to history...');
-      setLoaderProgress(90);
 
       const historyPayload: any = {
         fileName: file.name,
@@ -183,8 +204,8 @@ export default function ScribePage() {
       if (changelog) historyPayload.changelog = changelog;
 
       await addHistoryItemToFirestore(historyPayload);
+      updateLog('Saving to history', 'done');
 
-      setLoaderProgress(100);
       setTranscription(correctedTranscription || initialTranscription);
       setStatus('success');
 
@@ -192,9 +213,10 @@ export default function ScribePage() {
       console.error(e);
       let errorMessage = e.message || 'An unknown error occurred during transcription.';
       if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
-          errorMessage = 'The AI service is currently busy. Please try again in a few moments.';
+          errorMessage = 'The AI service is currently busy or overloaded. Please try again in a few moments.';
       }
       setError(errorMessage);
+      setProcessingLogs(prev => prev.map(log => log.status === 'in_progress' ? {...log, status: 'error'} : log));
       setStatus('error');
     }
   };
@@ -232,7 +254,7 @@ export default function ScribePage() {
       default:
         switch (status) {
           case 'processing':
-            return <Loader message={loaderMessage} progress={loaderProgress} />;
+            return <Loader logs={processingLogs} />;
           case 'success':
             return <TranscriptionDisplay text={transcription} isStreaming={false} onTranscribeAnother={resetTranscriptionState} />;
           case 'error':
