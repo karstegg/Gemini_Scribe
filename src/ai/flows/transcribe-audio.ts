@@ -10,7 +10,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z, generate} from 'genkit';
+import {z} from 'genkit';
 
 const TranscribeAudioInputSchema = z.object({
   audioDataUri: z
@@ -68,14 +68,16 @@ const transcribeAudioFlow = ai.defineFlow(
 
 // New server action for streaming
 export async function streamTranscription(input: TranscribeAudioInput): Promise<ReadableStream<string>> {
-  const { stream } = await generate({
-    model: input.model,
-    prompt: `You are an expert transcriptionist. Transcribe the provided audio recording into text accurately.
+  const { stream } = await ai.generate({
+    model: ai.model(input.model),
+    prompt: [
+        {text: `You are an expert transcriptionist. Transcribe the provided audio recording into text accurately.
 
-    Subject: ${input.subject}
-    Transcription Instructions: ${input.transcriptionInstructions}
-    
-    Audio: ${ {media: {url: input.audioDataUri}} }`,
+        Subject: ${input.subject}
+        Transcription Instructions: ${input.transcriptionInstructions}`
+        },
+        {media: {url: input.audioDataUri}}
+    ],
     stream: true,
   });
 
