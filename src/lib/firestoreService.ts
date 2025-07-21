@@ -1,11 +1,13 @@
 import { collection, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, onSnapshot, type Unsubscribe } from "firebase/firestore";
-import { db, auth, authenticateUser } from "./firebase";
+import { db, auth, authenticateUser, isFirebaseConfigured } from "./firebase";
 import type { HistoryItem } from "@/types";
 
 type HistoryWithoutId = Omit<HistoryItem, 'id' | 'createdAt'>;
 
 export const addHistoryItemToFirestore = async (item: HistoryWithoutId) => {
-  if (!db || !auth) throw new Error("Firestore is not initialized.");
+  if (!isFirebaseConfigured() || !db || !auth) {
+    throw new Error("Firebase is not configured. History cannot be saved.");
+  }
   
   const user = await authenticateUser();
   if (!user) throw new Error("User is not authenticated.");
@@ -18,7 +20,9 @@ export const addHistoryItemToFirestore = async (item: HistoryWithoutId) => {
 };
 
 export const deleteHistoryItemFromFirestore = async (itemId: string) => {
-  if (!db || !auth?.currentUser) throw new Error("Firestore is not initialized or user is not authenticated.");
+  if (!isFirebaseConfigured() || !db || !auth?.currentUser) {
+    throw new Error("Firebase is not configured or user is not authenticated.");
+  }
   
   const docRef = doc(db, `users/${auth.currentUser.uid}/history`, itemId);
   return await deleteDoc(docRef);
@@ -28,8 +32,8 @@ export const listenToHistory = (
     callback: (history: HistoryItem[]) => void,
     onError: (error: Error) => void
 ): Unsubscribe | (() => void) => {
-    if (!db || !auth?.currentUser) {
-        onError(new Error("Firestore is not initialized or user is not authenticated."));
+    if (!isFirebaseConfigured() || !db || !auth?.currentUser) {
+        onError(new Error("Firebase is not configured or user is not authenticated."));
         return () => {};
     }
 
