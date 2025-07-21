@@ -62,22 +62,20 @@ function useStreamedText(
         while (true) {
           const { value, done } = await reader.read();
           if (done) {
-            onStreamEnd();
             break;
           }
           setText((prev) => prev + decoder.decode(value, { stream: true }));
         }
       } catch (error) {
-        // The reader.cancel() in the cleanup function will throw an error.
-        // We can safely ignore it if the component is unmounting.
-        console.log("Stream reading was cancelled or an error occurred.");
+        console.error("Stream reading was cancelled or an error occurred:", error);
+      } finally {
+        onStreamEnd();
       }
     };
 
     read();
 
     return () => {
-      // This will cause the `reader.read()` to throw, which is caught above.
       reader.cancel().catch(() => {});
     };
     
@@ -377,3 +375,5 @@ export default function ScribePage() {
     </div>
   );
 }
+
+    
