@@ -47,10 +47,11 @@ function useStreamedText(stream: ReadableStream<string> | null) {
   useEffect(() => {
     if (!stream) return;
 
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
     let isCancelled = false;
-    async function readStream() {
-      const reader = stream.getReader();
-      const decoder = new TextDecoder();
+
+    async function read() {
       try {
         while (!isCancelled) {
           const { value, done } = await reader.read();
@@ -58,15 +59,17 @@ function useStreamedText(stream: ReadableStream<string> | null) {
           setText(prev => prev + decoder.decode(value, { stream: true }));
         }
       } catch (error) {
-        console.error("Error reading stream:", error);
-      } finally {
-        reader.releaseLock();
+        if (!isCancelled) {
+          console.error("Error reading stream:", error);
+        }
       }
     }
-    readStream();
+    
+    read();
 
     return () => {
       isCancelled = true;
+      reader.cancel().catch(() => {});
     };
   }, [stream]);
 
