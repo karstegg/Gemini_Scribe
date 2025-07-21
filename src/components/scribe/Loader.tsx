@@ -1,10 +1,12 @@
 import { Loader2, CheckCircle2, XCircle, CircleDashed } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import type { ProcessingLog } from '@/types';
 import { cn } from '@/lib/utils';
 
 type LoaderProps = {
   logs: ProcessingLog[];
+  onCancel: () => void;
 };
 
 const statusIcons = {
@@ -14,7 +16,7 @@ const statusIcons = {
   error: <XCircle className="h-5 w-5 text-destructive" />,
 };
 
-export function Loader({ logs }: LoaderProps) {
+export function Loader({ logs, onCancel }: LoaderProps) {
   const hasError = logs.some(log => log.status === 'error');
 
   return (
@@ -55,6 +57,11 @@ export function Loader({ logs }: LoaderProps) {
           )}
         </div>
       </CardContent>
+      <CardFooter className="justify-end">
+        <Button variant="outline" onClick={onCancel}>
+          Cancel and Reset
+        </Button>
+      </CardFooter>
     </Card>
   );
 }

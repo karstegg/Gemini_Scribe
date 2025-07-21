@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -51,6 +51,8 @@ export default function ScribePage() {
   const [file, setFile] = useState<File | null>(null);
   const [transcription, setTranscription] = useState('');
   const [processingLogs, setProcessingLogs] = useState<ProcessingLog[]>([]);
+  
+  const isCancelledRef = useRef(false);
 
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<HistoryItem | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -92,6 +94,7 @@ export default function ScribePage() {
     setStatus('idle');
     setError(null);
     setProcessingLogs([]);
+    isCancelledRef.current = true;
     form.reset({
       model: 'gemini-2.5-pro',
       subject: '',
@@ -106,6 +109,7 @@ export default function ScribePage() {
 
   const handleTranscribe = async (options: TranscriptionOptions) => {
     if (!file) return;
+    isCancelledRef.current = false;
     setStatus('processing');
     setError(null);
 
@@ -123,6 +127,7 @@ export default function ScribePage() {
     setProcessingLogs(initialLogs);
 
     const updateLog = (message: string, status: 'done' | 'error', nextMessage?: string) => {
+      if (isCancelledRef.current) return;
       setProcessingLogs(prevLogs => {
         const newLogs = prevLogs.map(log => 
           log.message === message ? { ...log, status } : log
@@ -139,6 +144,7 @@ export default function ScribePage() {
 
     try {
       const audioDataUri = await fileToBase64(file);
+      if (isCancelledRef.current) return;
       updateLog('Preparing audio...', 'done', 'Transcribing audio file');
       
       let finalInstructions = options.transcriptionInstructions || '';
@@ -165,6 +171,7 @@ export default function ScribePage() {
         referenceFiles: [], 
       });
       
+      if (isCancelledRef.current) return;
       setTranscription(initialTranscription);
       updateLog('Transcribing audio file', 'done', options.review ? 'AI review & correction' : options.generateSummary ? 'Generating summary' : 'Saving to history');
       
@@ -178,6 +185,7 @@ export default function ScribePage() {
           transcription: initialTranscription,
           reviewSettings,
         });
+        if (isCancelledRef.current) return;
         correctedTranscription = reviewResult.correctedTranscription;
         changelog = reviewResult.changelog;
         updateLog('AI review & correction', 'done', options.generateSummary ? 'Generating summary' : 'Saving to history');
@@ -186,6 +194,7 @@ export default function ScribePage() {
       const textForSummary = correctedTranscription || initialTranscription;
       if (options.generateSummary) {
         const summaryResult = await summarizeTranscription({ transcription: textForSummary });
+        if (isCancelledRef.current) return;
         summary = summaryResult.summary;
         updateLog('Generating summary', 'done', 'Saving to history');
       }
@@ -203,13 +212,16 @@ export default function ScribePage() {
       if (summary) historyPayload.summary = summary;
       if (changelog) historyPayload.changelog = changelog;
 
+      if (isCancelledRef.current) return;
       await addHistoryItemToFirestore(historyPayload);
+      if (isCancelledRef.current) return;
       updateLog('Saving to history', 'done');
 
       setTranscription(correctedTranscription || initialTranscription);
       setStatus('success');
 
     } catch (e: any) {
+      if (isCancelledRef.current) return;
       console.error(e);
       let errorMessage = e.message || 'An unknown error occurred during transcription.';
       if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
@@ -254,7 +266,7 @@ export default function ScribePage() {
       default:
         switch (status) {
           case 'processing':
-            return <Loader logs={processingLogs} />;
+            return <Loader logs={processingLogs} onCancel={resetTranscriptionState} />;
           case 'success':
             return <TranscriptionDisplay text={transcription} isStreaming={false} onTranscribeAnother={resetTranscriptionState} />;
           case 'error':
