@@ -69,7 +69,7 @@ const transcribeAudioFlow = ai.defineFlow(
 // New server action for streaming
 export async function streamTranscription(input: TranscribeAudioInput): Promise<ReadableStream<string>> {
   const { stream } = await ai.generate({
-    model: ai.model(input.model),
+    model: `googleai/${input.model}`,
     prompt: [
         {text: `You are an expert transcriptionist. Transcribe the provided audio recording into text accurately.
 
