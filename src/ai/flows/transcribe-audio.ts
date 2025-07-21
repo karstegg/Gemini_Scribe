@@ -71,11 +71,7 @@ export async function streamTranscription(input: TranscribeAudioInput): Promise<
   const { stream } = ai.generateStream({
     model: `googleai/${input.model}`,
     prompt: [
-        {text: `You are an expert transcriptionist. Transcribe the provided audio recording into text accurately.
-
-        Subject: ${input.subject}
-        Transcription Instructions: ${input.transcriptionInstructions}`
-        },
+        {text: `Transcribe the following audio. Subject: ${input.subject}. Instructions: ${input.transcriptionInstructions}`},
         {media: {url: input.audioDataUri}}
     ],
   });
