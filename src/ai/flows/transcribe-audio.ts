@@ -4,12 +4,13 @@
  * @fileOverview This file defines a Genkit flow for transcribing audio files using the Gemini API.
  *
  * - transcribeAudio - A function that handles the audio transcription process.
+ * - streamTranscription - A server action that provides a stream of transcription text.
  * - TranscribeAudioInput - The input type for the transcribeAudio function.
  * - TranscribeAudioOutput - The return type for the transcribeAudio function.
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z, generate} from 'genkit';
 
 const TranscribeAudioInputSchema = z.object({
   audioDataUri: z
@@ -63,3 +64,33 @@ const transcribeAudioFlow = ai.defineFlow(
     return output!;
   }
 );
+
+
+// New server action for streaming
+export async function streamTranscription(input: TranscribeAudioInput): Promise<ReadableStream<string>> {
+  const { stream } = await generate({
+    model: input.model,
+    prompt: `You are an expert transcriptionist. Transcribe the provided audio recording into text accurately.
+
+    Subject: ${input.subject}
+    Transcription Instructions: ${input.transcriptionInstructions}
+    
+    Audio: ${ {media: {url: input.audioDataUri}} }`,
+    stream: true,
+  });
+
+  const encoder = new TextEncoder();
+  const readableStream = new ReadableStream({
+    async start(controller) {
+      for await (const chunk of stream) {
+        const text = chunk.text;
+        if (text) {
+          controller.enqueue(encoder.encode(text));
+        }
+      }
+      controller.close();
+    }
+  });
+
+  return readableStream;
+}

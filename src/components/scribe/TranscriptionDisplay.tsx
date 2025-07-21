@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Copy, Check, FilePlus2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 type TranscriptionDisplayProps = {
   text: string;
@@ -17,10 +16,10 @@ export function TranscriptionDisplay({ text, isStreaming, onTranscribeAnother }:
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isStreaming && scrollRef.current) {
+    if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [text, isStreaming]);
+  }, [text]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(text);
@@ -33,11 +32,11 @@ export function TranscriptionDisplay({ text, isStreaming, onTranscribeAnother }:
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Transcription</CardTitle>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleCopy}>
+          <Button variant="outline" size="sm" onClick={handleCopy} disabled={isStreaming}>
             {hasCopied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
             {hasCopied ? 'Copied!' : 'Copy'}
           </Button>
-          <Button variant="default" size="sm" onClick={onTranscribeAnother}>
+          <Button variant="default" size="sm" onClick={onTranscribeAnother} disabled={isStreaming}>
             <FilePlus2 className="mr-2 h-4 w-4" />
             Transcribe Another
           </Button>

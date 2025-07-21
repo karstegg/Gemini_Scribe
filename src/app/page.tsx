@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, use } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,7 +19,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, Bot } from 'lucide-react';
 
-import { transcribeAudio } from '@/ai/flows/transcribe-audio';
+import { streamTranscription } from '@/ai/flows/transcribe-audio';
 import { reviewAndCorrectTranscription } from '@/ai/flows/review-and-correct-transcription';
 import { summarizeTranscription } from '@/ai/flows/summarize-transcription';
 
@@ -41,6 +41,26 @@ const formSchema = z.object({
   referenceFiles: z.array(z.instanceof(File)),
 });
 
+function StreamingTranscription({ stream }: { stream: ReadableStream<string> }) {
+  const [transcription, setTranscription] = useState('');
+  
+  useEffect(() => {
+    async function readStream() {
+      const reader = stream.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        setTranscription(prev => prev + decoder.decode(value));
+      }
+    }
+    readStream();
+  }, [stream]);
+
+  return <TranscriptionDisplay text={transcription} isStreaming={true} onTranscribeAnother={() => window.location.reload()} />;
+}
+
+
 export default function ScribePage() {
   const [view, setView] = useState<View>('transcribe');
   const [status, setStatus] = useState<Status>('idle');
@@ -49,8 +69,7 @@ export default function ScribePage() {
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   const [file, setFile] = useState<File | null>(null);
-  const [transcription, setTranscription] = useState('');
-  const [processingLogs, setProcessingLogs] = useState<ProcessingLog[]>([]);
+  const [transcriptionStream, setTranscriptionStream] = useState<ReadableStream<string> | null>(null);
   
   const isCancelledRef = useRef(false);
 
@@ -90,10 +109,9 @@ export default function ScribePage() {
 
   const resetTranscriptionState = () => {
     setFile(null);
-    setTranscription('');
+    setTranscriptionStream(null);
     setStatus('idle');
     setError(null);
-    setProcessingLogs([]);
     isCancelledRef.current = true;
     form.reset({
       model: 'gemini-2.5-pro',
@@ -113,39 +131,9 @@ export default function ScribePage() {
     setStatus('processing');
     setError(null);
 
-    const initialLogs: ProcessingLog[] = [
-      { message: 'Preparing audio...', status: 'in_progress', timestamp: new Date() },
-      { message: 'Transcribing audio file', status: 'pending', timestamp: new Date() },
-    ];
-    if (options.review) {
-      initialLogs.push({ message: 'AI review & correction', status: 'pending', timestamp: new Date() });
-    }
-    if (options.generateSummary) {
-      initialLogs.push({ message: 'Generating summary', status: 'pending', timestamp: new Date() });
-    }
-    initialLogs.push({ message: 'Saving to history', status: 'pending', timestamp: new Date() });
-    setProcessingLogs(initialLogs);
-
-    const updateLog = (message: string, status: 'done' | 'error', nextMessage?: string) => {
-      if (isCancelledRef.current) return;
-      setProcessingLogs(prevLogs => {
-        const newLogs = prevLogs.map(log => 
-          log.message === message ? { ...log, status } : log
-        );
-        if (nextMessage) {
-          const nextLogIndex = newLogs.findIndex(log => log.message === nextMessage);
-          if (nextLogIndex > -1) {
-            newLogs[nextLogIndex] = { ...newLogs[nextLogIndex], status: 'in_progress' };
-          }
-        }
-        return newLogs;
-      });
-    };
-
     try {
       const audioDataUri = await fileToBase64(file);
       if (isCancelledRef.current) return;
-      updateLog('Preparing audio...', 'done', 'Transcribing audio file');
       
       let finalInstructions = options.transcriptionInstructions || '';
       const globalSettings = getSettings();
@@ -159,7 +147,7 @@ export default function ScribePage() {
         finalInstructions += '\nPlease include timestamps for key sections or speaker changes.';
       }
 
-      const { transcription: initialTranscription } = await transcribeAudio({
+      const stream = await streamTranscription({
         audioDataUri,
         model: options.model,
         subject: options.subject,
@@ -170,10 +158,27 @@ export default function ScribePage() {
         review: options.review,
         referenceFiles: [], 
       });
+
+      if (isCancelledRef.current) return;
+      
+      setTranscriptionStream(stream);
+      setStatus('success');
+      
+      // Post-streaming tasks
+      // We need to consume the stream again to get the full text for post-processing
+      const [stream1, stream2] = stream.tee();
+      setTranscriptionStream(stream1);
+
+      let fullTranscription = '';
+      const reader = stream2.getReader();
+      const decoder = new TextDecoder();
+      while(true) {
+        const {value, done} = await reader.read();
+        if (done) break;
+        fullTranscription += decoder.decode(value);
+      }
       
       if (isCancelledRef.current) return;
-      setTranscription(initialTranscription);
-      updateLog('Transcribing audio file', 'done', options.review ? 'AI review & correction' : options.generateSummary ? 'Generating summary' : 'Saving to history');
       
       let correctedTranscription: string | undefined;
       let changelog: string | undefined;
@@ -182,26 +187,24 @@ export default function ScribePage() {
       if (options.review) {
         const reviewSettings = getSettings().reviewSettings;
         const reviewResult = await reviewAndCorrectTranscription({
-          transcription: initialTranscription,
+          transcription: fullTranscription,
           reviewSettings,
         });
         if (isCancelledRef.current) return;
         correctedTranscription = reviewResult.correctedTranscription;
         changelog = reviewResult.changelog;
-        updateLog('AI review & correction', 'done', options.generateSummary ? 'Generating summary' : 'Saving to history');
       }
       
-      const textForSummary = correctedTranscription || initialTranscription;
+      const textForSummary = correctedTranscription || fullTranscription;
       if (options.generateSummary) {
         const summaryResult = await summarizeTranscription({ transcription: textForSummary });
         if (isCancelledRef.current) return;
         summary = summaryResult.summary;
-        updateLog('Generating summary', 'done', 'Saving to history');
       }
 
       const historyPayload: any = {
         fileName: file.name,
-        transcription: initialTranscription,
+        transcription: fullTranscription,
         options: {
           ...options,
           referenceFiles: options.referenceFiles.map(f => ({ name: f.name, size: f.size })),
@@ -211,14 +214,10 @@ export default function ScribePage() {
       if (correctedTranscription) historyPayload.correctedTranscription = correctedTranscription;
       if (summary) historyPayload.summary = summary;
       if (changelog) historyPayload.changelog = changelog;
-
+      
       if (isCancelledRef.current) return;
       await addHistoryItemToFirestore(historyPayload);
       if (isCancelledRef.current) return;
-      updateLog('Saving to history', 'done');
-
-      setTranscription(correctedTranscription || initialTranscription);
-      setStatus('success');
 
     } catch (e: any) {
       if (isCancelledRef.current) return;
@@ -227,8 +226,10 @@ export default function ScribePage() {
       if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
           errorMessage = 'The AI service is currently busy or overloaded. Please try again in a few moments.';
       }
+      if (errorMessage.includes('429')) {
+          errorMessage = "You've exceeded the rate limit for the AI model. Please try again later.";
+      }
       setError(errorMessage);
-      setProcessingLogs(prev => prev.map(log => log.status === 'in_progress' ? {...log, status: 'error'} : log));
       setStatus('error');
     }
   };
@@ -266,9 +267,10 @@ export default function ScribePage() {
       default:
         switch (status) {
           case 'processing':
-            return <Loader logs={processingLogs} onCancel={resetTranscriptionState} />;
+            // Simple loader while we initiate the stream
+            return <Loader logs={[{message: "Starting transcription stream...", status: "in_progress", timestamp: new Date()}]} onCancel={resetTranscriptionState} />;
           case 'success':
-            return <TranscriptionDisplay text={transcription} isStreaming={false} onTranscribeAnother={resetTranscriptionState} />;
+            return transcriptionStream ? <StreamingTranscription stream={transcriptionStream} /> : <p>Starting stream...</p>;
           case 'error':
             return (
               <Card className="w-full max-w-lg mx-auto">
