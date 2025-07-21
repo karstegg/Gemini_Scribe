@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, use } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -43,40 +43,44 @@ const formSchema = z.object({
 
 function useStreamedText(stream: ReadableStream<string> | null) {
   const [text, setText] = useState('');
-  
-  useEffect(() => {
-    if (!stream) return;
+  const hasRun = useRef(false);
 
-    let isCancelled = false;
+  useEffect(() => {
+    if (!stream || hasRun.current) {
+      return;
+    }
+    hasRun.current = true;
+
     const reader = stream.getReader();
     const decoder = new TextDecoder();
 
-    async function read() {
+    const read = async () => {
       try {
-        while (!isCancelled) {
+        while (true) {
           const { value, done } = await reader.read();
           if (done) break;
-          setText(prev => prev + decoder.decode(value, { stream: true }));
+          setText((prev) => prev + decoder.decode(value, { stream: true }));
         }
       } catch (error) {
-        if (!isCancelled) {
-          console.error("Error reading stream:", error);
-        }
+        // The reader.cancel() in the cleanup function will throw an error.
+        // We can safely ignore it if the component is unmounting.
+        console.log("Stream reading was cancelled or an error occurred.");
       }
-    }
-    
+    };
+
     read();
 
     return () => {
-      isCancelled = true;
-      // This is the crucial part. It signals the reader to stop and releases the lock.
+      // This will cause the `reader.read()` to throw, which is caught above.
       reader.cancel().catch(() => {});
     };
+    
+  // We only want this effect to run once when the stream is available.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stream]);
 
   return text;
 }
-
 
 function StreamingTranscription({ stream }: { stream: ReadableStream<string> | null }) {
   const transcription = useStreamedText(stream);
