@@ -41,7 +41,10 @@ const formSchema = z.object({
   referenceFiles: z.array(z.instanceof(File)),
 });
 
-function useStreamedText(stream: ReadableStream<string> | null) {
+function useStreamedText(
+  stream: ReadableStream<string> | null, 
+  onStreamEnd: () => void
+) {
   const [text, setText] = useState('');
   const hasRun = useRef(false);
 
@@ -58,7 +61,10 @@ function useStreamedText(stream: ReadableStream<string> | null) {
       try {
         while (true) {
           const { value, done } = await reader.read();
-          if (done) break;
+          if (done) {
+            onStreamEnd();
+            break;
+          }
           setText((prev) => prev + decoder.decode(value, { stream: true }));
         }
       } catch (error) {
@@ -82,10 +88,11 @@ function useStreamedText(stream: ReadableStream<string> | null) {
   return text;
 }
 
-function StreamingTranscription({ stream }: { stream: ReadableStream<string> | null }) {
-  const transcription = useStreamedText(stream);
+function StreamingTranscription({ stream, onTranscribeAnother }: { stream: ReadableStream<string> | null, onTranscribeAnother: () => void }) {
+  const [isStreaming, setIsStreaming] = useState(true);
+  const transcription = useStreamedText(stream, () => setIsStreaming(false));
   
-  return <TranscriptionDisplay text={transcription} isStreaming={true} onTranscribeAnother={() => window.location.reload()} />;
+  return <TranscriptionDisplay text={transcription} isStreaming={isStreaming} onTranscribeAnother={onTranscribeAnother} />;
 }
 
 
@@ -309,7 +316,7 @@ export default function ScribePage() {
             // Simple loader while we initiate the stream
             return <Loader logs={[{message: "Starting transcription stream...", status: "in_progress", timestamp: new Date()}]} onCancel={resetTranscriptionState} />;
           case 'success':
-            return transcriptionStream ? <StreamingTranscription stream={transcriptionStream} /> : <p>Starting stream...</p>;
+            return transcriptionStream ? <StreamingTranscription stream={transcriptionStream} onTranscribeAnother={() => window.location.reload()} /> : <p>Starting stream...</p>;
           case 'error':
             return (
               <Card className="w-full max-w-lg mx-auto">
