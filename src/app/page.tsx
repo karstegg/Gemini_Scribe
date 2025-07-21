@@ -42,43 +42,39 @@ const formSchema = z.object({
 });
 
 function useStreamedText(
-  stream: ReadableStream<string> | null,
+  stream: ReadableStream | null,
   onStreamEnd: () => void
 ) {
   const [text, setText] = useState('');
+  const streamStarted = useRef(false);
 
   useEffect(() => {
-    if (!stream) return;
+    if (!stream || streamStarted.current) return;
 
-    const abortController = new AbortController();
+    streamStarted.current = true;
     const reader = stream.getReader();
     const decoder = new TextDecoder();
 
-    const read = async () => {
+    async function read() {
       try {
         while (true) {
           const { value, done } = await reader.read();
-          if (done || abortController.signal.aborted) {
+          if (done) {
             break;
           }
           const chunk = decoder.decode(value, { stream: true });
           setText((prev) => prev + chunk);
         }
       } catch (error) {
-        if (!abortController.signal.aborted) {
-          console.error('Stream reading failed:', error);
-        }
+         console.error('Stream reading failed:', error);
       } finally {
         onStreamEnd();
         reader.releaseLock();
       }
-    };
+    }
 
     read();
-
-    return () => {
-      abortController.abort();
-    };
+    // We only want this to run when the stream object itself changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stream]);
 
