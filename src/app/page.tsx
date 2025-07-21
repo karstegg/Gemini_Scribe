@@ -47,9 +47,9 @@ function useStreamedText(stream: ReadableStream<string> | null) {
   useEffect(() => {
     if (!stream) return;
 
+    let isCancelled = false;
     const reader = stream.getReader();
     const decoder = new TextDecoder();
-    let isCancelled = false;
 
     async function read() {
       try {
@@ -69,6 +69,7 @@ function useStreamedText(stream: ReadableStream<string> | null) {
 
     return () => {
       isCancelled = true;
+      // This is the crucial part. It signals the reader to stop and releases the lock.
       reader.cancel().catch(() => {});
     };
   }, [stream]);
