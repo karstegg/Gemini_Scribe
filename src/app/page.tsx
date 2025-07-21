@@ -161,63 +161,74 @@ export default function ScribePage() {
 
       if (isCancelledRef.current) return;
       
-      setTranscriptionStream(stream);
+      const [streamForUi, streamForSaving] = stream.tee();
+      
+      setTranscriptionStream(streamForUi);
       setStatus('success');
       
-      // Post-streaming tasks
-      // We need to consume the stream again to get the full text for post-processing
-      const [stream1, stream2] = stream.tee();
-      setTranscriptionStream(stream1);
+      // Post-streaming tasks run in the background
+      const processInBackground = async () => {
+        let fullTranscription = '';
+        const reader = streamForSaving.getReader();
+        const decoder = new TextDecoder();
+        while(true) {
+          const {value, done} = await reader.read();
+          if (done) break;
+          fullTranscription += decoder.decode(value);
+        }
+        
+        if (isCancelledRef.current) return;
+        
+        let correctedTranscription: string | undefined;
+        let changelog: string | undefined;
+        let summary: string | undefined;
 
-      let fullTranscription = '';
-      const reader = stream2.getReader();
-      const decoder = new TextDecoder();
-      while(true) {
-        const {value, done} = await reader.read();
-        if (done) break;
-        fullTranscription += decoder.decode(value);
-      }
-      
-      if (isCancelledRef.current) return;
-      
-      let correctedTranscription: string | undefined;
-      let changelog: string | undefined;
-      let summary: string | undefined;
+        if (options.review) {
+          const reviewSettings = getSettings().reviewSettings;
+          const reviewResult = await reviewAndCorrectTranscription({
+            transcription: fullTranscription,
+            reviewSettings,
+          });
+          if (isCancelledRef.current) return;
+          correctedTranscription = reviewResult.correctedTranscription;
+          changelog = reviewResult.changelog;
+        }
+        
+        const textForSummary = correctedTranscription || fullTranscription;
+        if (options.generateSummary) {
+          const summaryResult = await summarizeTranscription({ transcription: textForSummary });
+          if (isCancelledRef.current) return;
+          summary = summaryResult.summary;
+        }
 
-      if (options.review) {
-        const reviewSettings = getSettings().reviewSettings;
-        const reviewResult = await reviewAndCorrectTranscription({
+        const historyPayload: any = {
+          fileName: file.name,
           transcription: fullTranscription,
-          reviewSettings,
-        });
-        if (isCancelledRef.current) return;
-        correctedTranscription = reviewResult.correctedTranscription;
-        changelog = reviewResult.changelog;
-      }
-      
-      const textForSummary = correctedTranscription || fullTranscription;
-      if (options.generateSummary) {
-        const summaryResult = await summarizeTranscription({ transcription: textForSummary });
-        if (isCancelledRef.current) return;
-        summary = summaryResult.summary;
-      }
+          options: {
+            ...options,
+            referenceFiles: options.referenceFiles.map(f => ({ name: f.name, size: f.size })),
+          },
+        };
 
-      const historyPayload: any = {
-        fileName: file.name,
-        transcription: fullTranscription,
-        options: {
-          ...options,
-          referenceFiles: options.referenceFiles.map(f => ({ name: f.name, size: f.size })),
-        },
+        if (correctedTranscription) historyPayload.correctedTranscription = correctedTranscription;
+        if (summary) historyPayload.summary = summary;
+        if (changelog) historyPayload.changelog = changelog;
+        
+        if (isCancelledRef.current) return;
+        await addHistoryItemToFirestore(historyPayload);
+        if (isCancelledRef.current) return;
       };
 
-      if (correctedTranscription) historyPayload.correctedTranscription = correctedTranscription;
-      if (summary) historyPayload.summary = summary;
-      if (changelog) historyPayload.changelog = changelog;
-      
-      if (isCancelledRef.current) return;
-      await addHistoryItemToFirestore(historyPayload);
-      if (isCancelledRef.current) return;
+      processInBackground().catch(e => {
+        // Don't update UI if cancelled, just log the error
+        if(isCancelledRef.current) {
+          console.error("Error in background processing after cancellation:", e);
+          return;
+        }
+        console.error("Background processing failed:", e);
+        setError(e.message || "An error occurred while saving the transcription.");
+        // We don't set status to error here because the user has already received the stream
+      });
 
     } catch (e: any) {
       if (isCancelledRef.current) return;
