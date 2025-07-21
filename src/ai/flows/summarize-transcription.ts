@@ -31,12 +31,13 @@ const prompt = ai.definePrompt({
   name: 'summarizeTranscriptionPrompt',
   input: {schema: SummarizeTranscriptionInputSchema},
   output: {schema: SummarizeTranscriptionOutputSchema},
-  prompt: `You are an expert summarizer.
+  prompt: `You are an expert summarizer. Provide a concise summary of the following transcribed text.
 
-  Please provide a concise summary of the following transcribed text:
+Your output MUST be a valid JSON object matching the requested schema. Do not include any other text or markdown fences.
 
-  {{{transcription}}}
-  `,
+Transcription:
+{{{transcription}}}
+`,
 });
 
 const summarizeTranscriptionFlow = ai.defineFlow(

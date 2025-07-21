@@ -41,12 +41,12 @@ const prompt = ai.definePrompt({
   name: 'transcribeAudioPrompt',
   input: {schema: TranscribeAudioInputSchema},
   output: {schema: TranscribeAudioOutputSchema},
-  prompt: `You are an expert transcriptionist.
-
-You will transcribe the provided audio recording into text. Pay close attention to detail and ensure accuracy.
+  prompt: `You are an expert transcriptionist. Transcribe the provided audio recording into text accurately.
 
 Subject: {{{subject}}}
 Transcription Instructions: {{{transcriptionInstructions}}}
+
+Your output MUST be a valid JSON object matching the requested schema. Do not include any other text or markdown fences.
 
 Audio: {{media url=audioDataUri}}
 `,

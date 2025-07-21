@@ -50,26 +50,22 @@ const prompt = ai.definePrompt({
   output: {schema: ReviewAndCorrectTranscriptionOutputSchema},
   prompt: `You are an AI expert tasked with reviewing and correcting transcriptions.
 
-  Given the original transcription, your goal is to provide a corrected transcription and a changelog summarizing the edits.
+Given the original transcription, your goal is to provide a corrected transcription and a changelog summarizing the edits.
 
-  Here are the review settings:
-  - Correct spelling: {{reviewSettings.correctSpelling}}
-  - Analyze speaker diarization: {{reviewSettings.analyzeDiarization}}
-  - Custom Review Prompt: {{reviewSettings.customReviewPrompt}}
+Review Settings:
+- Correct spelling: {{reviewSettings.correctSpelling}}
+- Analyze speaker diarization: {{reviewSettings.analyzeDiarization}}
+- Custom Review Prompt: {{reviewSettings.customReviewPrompt}}
 
-  Original Transcription: {{{transcription}}}
+Original Transcription:
+{{{transcription}}}
 
-  Follow these instructions:
-  1.  Correct any spelling and grammatical errors.
-  2.  If analyze speaker diarization is true, ensure the speaker labels are accurate and consistent.
-  3.  Use the custom review prompt, if available, to guide the review process.
+Instructions:
+1.  Correct any spelling and grammatical errors.
+2.  If speaker diarization analysis is enabled, ensure the speaker labels are accurate and consistent.
+3.  Use the custom review prompt, if provided, to guide the review process.
 
-  Output the corrected transcription and a detailed changelog.
-  Ensure the output is a JSON with the following schema: { correctedTranscription: string, changelog: string }
-  Be very strict about escaping characters and not including markdown fences.
-  
-  Corrected Transcription: 
-  Changelog: `,
+Your output MUST be a valid JSON object matching the requested schema. Do not include any other text or markdown fences.`,
   config: {
     safetySettings: [
       {
