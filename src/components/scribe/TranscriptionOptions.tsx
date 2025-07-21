@@ -158,7 +158,7 @@ export function TranscriptionOptionsForm() {
             <FormItem>
               <FormLabel>Context Documents</FormLabel>
               <FormControl>
-                <>
+                <div>
                   <input 
                     type="file" 
                     multiple 
@@ -170,7 +170,7 @@ export function TranscriptionOptionsForm() {
                     <FileUp className="mr-2 h-4 w-4"/>
                     Add Reference Files
                   </label>
-                </>
+                </div>
               </FormControl>
               <FormDescription>Upload text files for additional context (e.g., meeting agenda, glossary).</FormDescription>
               {referenceFiles.length > 0 && (
