@@ -65,7 +65,9 @@ export function HistoryDetail({ item }: HistoryDetailProps) {
         <Card>
           <CardHeader><CardTitle>Transcription Settings</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <p><strong>Model:</strong> <Badge variant="secondary">{item.options.model}</Badge></p>
+            <div className='flex items-center gap-2'>
+              <strong>Model:</strong> <Badge variant="secondary">{item.options.model}</Badge>
+            </div>
             <p><strong>Subject:</strong> {item.options.subject}</p>
             <div className="flex flex-wrap gap-2">
               {item.options.speakerLabels && <Badge>Speaker Labels</Badge>}
