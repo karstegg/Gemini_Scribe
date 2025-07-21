@@ -4,13 +4,15 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ArrowLeft } from 'lucide-react';
 import type { HistoryItem } from '@/types';
 
 type HistoryDetailProps = {
   item: HistoryItem;
+  onBack: () => void;
 };
 
-export function HistoryDetail({ item }: HistoryDetailProps) {
+export function HistoryDetail({ item, onBack }: HistoryDetailProps) {
   const [showCorrected, setShowCorrected] = useState(true);
 
   const transcriptionToShow = showCorrected && item.correctedTranscription 
@@ -22,15 +24,21 @@ export function HistoryDetail({ item }: HistoryDetailProps) {
       <div className="md:col-span-2">
         <Card>
           <CardHeader>
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle>{item.fileName}</CardTitle>
-                <CardDescription>
-                  Transcribed on {item.createdAt?.toDate().toLocaleString() ?? 'N/A'}
-                </CardDescription>
+            <div className="flex justify-between items-start gap-4">
+              <div className="flex items-center gap-4">
+                 <Button variant="outline" size="icon" onClick={onBack}>
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="sr-only">Back</span>
+                  </Button>
+                <div>
+                  <CardTitle>{item.fileName}</CardTitle>
+                  <CardDescription>
+                    Transcribed on {item.createdAt?.toDate().toLocaleString() ?? 'N/A'}
+                  </CardDescription>
+                </div>
               </div>
               {item.correctedTranscription && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-shrink-0">
                   <Button variant={!showCorrected ? 'default' : 'outline'} size="sm" onClick={() => setShowCorrected(false)}>Original</Button>
                   <Button variant={showCorrected ? 'default' : 'outline'} size="sm" onClick={() => setShowCorrected(true)}>Final Version</Button>
                 </div>

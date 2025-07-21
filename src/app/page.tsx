@@ -42,7 +42,7 @@ const formSchema = z.object({
 });
 
 function useStreamedText(
-  stream: ReadableStream<string> | null, 
+  stream: ReadableStream<string> | null,
   onStreamEnd: () => void
 ) {
   const [text, setText] = useState('');
@@ -53,21 +53,17 @@ function useStreamedText(
       return;
     }
     streamReadRef.current = true;
-    
+
     const readStream = async () => {
       const decoder = new TextDecoder();
       const reader = stream.getReader();
 
       try {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) {
-            break;
-          }
-          setText((prev) => prev + decoder.decode(value, { stream: true }));
+        for await (const chunk of stream) {
+          setText((prev) => prev + decoder.decode(chunk, { stream: true }));
         }
       } catch (error) {
-        console.error("Stream reading failed:", error);
+        console.error('Stream reading failed:', error);
       } finally {
         reader.releaseLock();
         onStreamEnd();
@@ -75,20 +71,30 @@ function useStreamedText(
     };
 
     readStream();
-    
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stream]);
 
   return text;
 }
 
-function StreamingTranscription({ stream, onTranscribeAnother }: { stream: ReadableStream<string> | null, onTranscribeAnother: () => void }) {
+function StreamingTranscription({
+  stream,
+  onTranscribeAnother,
+}: {
+  stream: ReadableStream<string> | null;
+  onTranscribeAnother: () => void;
+}) {
   const [isStreaming, setIsStreaming] = useState(true);
   const transcription = useStreamedText(stream, () => setIsStreaming(false));
-  
-  return <TranscriptionDisplay text={transcription} isStreaming={isStreaming} onTranscribeAnother={onTranscribeAnother} />;
-}
 
+  return (
+    <TranscriptionDisplay
+      text={transcription}
+      isStreaming={isStreaming}
+      onTranscribeAnother={onTranscribeAnother}
+    />
+  );
+}
 
 export default function ScribePage() {
   const [view, setView] = useState<View>('transcribe');
@@ -98,14 +104,20 @@ export default function ScribePage() {
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   const [file, setFile] = useState<File | null>(null);
-  const [transcriptionStream, setTranscriptionStream] = useState<ReadableStream<string> | null>(null);
-  
+  const [transcriptionStream, setTranscriptionStream] =
+    useState<ReadableStream<string> | null>(null);
+
   const isCancelledRef = useRef(false);
 
-  const [selectedHistoryItem, setSelectedHistoryItem] = useState<HistoryItem | null>(null);
+  const [selectedHistoryItem, setSelectedHistoryItem] =
+    useState<HistoryItem | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  
-  const { history, loading: historyLoading, error: historyError } = useHistory(user);
+
+  const {
+    history,
+    loading: historyLoading,
+    error: historyError,
+  } = useHistory(user);
 
   const form = useForm<TranscriptionOptions>({
     resolver: zodResolver(formSchema),
@@ -131,7 +143,9 @@ export default function ScribePage() {
         })
         .finally(() => setIsAuthReady(true));
     } else {
-      setError("Firebase is not configured. History and transcription features will be unavailable.");
+      setError(
+        'Firebase is not configured. History and transcription features will be unavailable.'
+      );
       setIsAuthReady(true);
     }
   }, []);
@@ -163,17 +177,19 @@ export default function ScribePage() {
     try {
       const audioDataUri = await fileToBase64(file);
       if (isCancelledRef.current) return;
-      
+
       let finalInstructions = options.transcriptionInstructions || '';
       const globalSettings = getSettings();
-      if(globalSettings.standardTranscriptionInstructions) {
+      if (globalSettings.standardTranscriptionInstructions) {
         finalInstructions = `${globalSettings.standardTranscriptionInstructions}\n\n${finalInstructions}`;
       }
       if (options.speakerLabels) {
-        finalInstructions += '\nPlease identify and label different speakers (e.g., Speaker 1, Speaker 2).';
+        finalInstructions +=
+          '\nPlease identify and label different speakers (e.g., Speaker 1, Speaker 2).';
       }
       if (options.addTimestamps) {
-        finalInstructions += '\nPlease include timestamps for key sections or speaker changes.';
+        finalInstructions +=
+          '\nPlease include timestamps for key sections or speaker changes.';
       }
 
       const stream = await streamTranscription({
@@ -185,29 +201,29 @@ export default function ScribePage() {
         addTimestamps: options.addTimestamps,
         generateSummary: options.generateSummary,
         review: options.review,
-        referenceFiles: [], 
+        referenceFiles: [],
       });
 
       if (isCancelledRef.current) return;
-      
+
       const [streamForUi, streamForSaving] = stream.tee();
-      
+
       setTranscriptionStream(streamForUi);
       setStatus('success');
-      
+
       // Post-streaming tasks run in the background
       const processInBackground = async () => {
         let fullTranscription = '';
         const reader = streamForSaving.getReader();
         const decoder = new TextDecoder();
-        while(true) {
-          const {value, done} = await reader.read();
+        while (true) {
+          const { value, done } = await reader.read();
           if (done) break;
           fullTranscription += decoder.decode(value);
         }
-        
+
         if (isCancelledRef.current) return;
-        
+
         let correctedTranscription: string | undefined;
         let changelog: string | undefined;
         let summary: string | undefined;
@@ -222,10 +238,12 @@ export default function ScribePage() {
           correctedTranscription = reviewResult.correctedTranscription;
           changelog = reviewResult.changelog;
         }
-        
+
         const textForSummary = correctedTranscription || fullTranscription;
         if (options.generateSummary) {
-          const summaryResult = await summarizeTranscription({ transcription: textForSummary });
+          const summaryResult = await summarizeTranscription({
+            transcription: textForSummary,
+          });
           if (isCancelledRef.current) return;
           summary = summaryResult.summary;
         }
@@ -235,45 +253,51 @@ export default function ScribePage() {
           transcription: fullTranscription,
           options: {
             ...options,
-            referenceFiles: options.referenceFiles.map(f => ({ name: f.name, size: f.size })),
+            referenceFiles: options.referenceFiles.map((f) => ({
+              name: f.name,
+              size: f.size,
+            })),
           },
         };
 
-        if (correctedTranscription) historyPayload.correctedTranscription = correctedTranscription;
+        if (correctedTranscription)
+          historyPayload.correctedTranscription = correctedTranscription;
         if (summary) historyPayload.summary = summary;
         if (changelog) historyPayload.changelog = changelog;
-        
+
         if (isCancelledRef.current) return;
         await addHistoryItemToFirestore(historyPayload);
         if (isCancelledRef.current) return;
       };
 
-      processInBackground().catch(e => {
+      processInBackground().catch((e) => {
         // Don't update UI if cancelled, just log the error
-        if(isCancelledRef.current) {
-          console.error("Error in background processing after cancellation:", e);
+        if (isCancelledRef.current) {
+          console.error('Error in background processing after cancellation:', e);
           return;
         }
-        console.error("Background processing failed:", e);
-        setError(e.message || "An error occurred while saving the transcription.");
+        console.error('Background processing failed:', e);
+        setError(e.message || 'An error occurred while saving the transcription.');
         // We don't set status to error here because the user has already received the stream
       });
-
     } catch (e: any) {
       if (isCancelledRef.current) return;
       console.error(e);
-      let errorMessage = e.message || 'An unknown error occurred during transcription.';
+      let errorMessage =
+        e.message || 'An unknown error occurred during transcription.';
       if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
-          errorMessage = 'The AI service is currently busy or overloaded. Please try again in a few moments.';
+        errorMessage =
+          'The AI service is currently busy or overloaded. Please try again in a few moments.';
       }
       if (errorMessage.includes('429')) {
-          errorMessage = "You've exceeded the rate limit for the AI model. Please try again later.";
+        errorMessage =
+          "You've exceeded the rate limit for the AI model. Please try again later.";
       }
       setError(errorMessage);
       setStatus('error');
     }
   };
-  
+
   const handleDeleteHistoryItem = async (id: string) => {
     try {
       await deleteHistoryItemFromFirestore(id);
@@ -282,39 +306,71 @@ export default function ScribePage() {
         setSelectedHistoryItem(null);
       }
     } catch (e: any) {
-      console.error("Failed to delete item:", e);
-      setError(e.message || "Failed to delete item.");
+      console.error('Failed to delete item:', e);
+      setError(e.message || 'Failed to delete item.');
     }
   };
 
   const renderContent = () => {
     switch (view) {
       case 'history':
-        return <HistoryList 
-                  history={history} 
-                  loading={!isAuthReady || historyLoading}
-                  error={historyError || (isAuthReady && !user ? "Could not authenticate user." : null)}
-                  onViewDetail={(item) => {
-                    setSelectedHistoryItem(item);
-                    setView('history_detail');
-                  }}
-                  onDeleteItem={handleDeleteHistoryItem}
-                />;
+        return (
+          <HistoryList
+            history={history}
+            loading={!isAuthReady || historyLoading}
+            error={
+              historyError ||
+              (isAuthReady && !user ? 'Could not authenticate user.' : null)
+            }
+            onViewDetail={(item) => {
+              setSelectedHistoryItem(item);
+              setView('history_detail');
+            }}
+            onDeleteItem={handleDeleteHistoryItem}
+          />
+        );
       case 'history_detail':
-        return selectedHistoryItem ? <HistoryDetail item={selectedHistoryItem} /> : <p>No item selected.</p>;
-      
+        return selectedHistoryItem ? (
+          <HistoryDetail
+            item={selectedHistoryItem}
+            onBack={() => setView('history')}
+          />
+        ) : (
+          <p>No item selected.</p>
+        );
+
       case 'transcribe':
       default:
         switch (status) {
           case 'processing':
             // Simple loader while we initiate the stream
-            return <Loader logs={[{message: "Starting transcription stream...", status: "in_progress", timestamp: new Date()}]} onCancel={resetTranscriptionState} />;
+            return (
+              <Loader
+                logs={[
+                  {
+                    message: 'Starting transcription stream...',
+                    status: 'in_progress',
+                    timestamp: new Date(),
+                  },
+                ]}
+                onCancel={resetTranscriptionState}
+              />
+            );
           case 'success':
-            return transcriptionStream ? <StreamingTranscription stream={transcriptionStream} onTranscribeAnother={() => window.location.reload()} /> : <p>Starting stream...</p>;
+            return transcriptionStream ? (
+              <StreamingTranscription
+                stream={transcriptionStream}
+                onTranscribeAnother={() => window.location.reload()}
+              />
+            ) : (
+              <p>Starting stream...</p>
+            );
           case 'error':
             return (
               <Card className="w-full max-w-lg mx-auto">
-                <CardHeader><CardTitle>An Error Occurred</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle>An Error Occurred</CardTitle>
+                </CardHeader>
                 <CardContent>
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
@@ -333,15 +389,25 @@ export default function ScribePage() {
               <Card className="w-full max-w-2xl mx-auto">
                 <CardHeader>
                   <CardTitle>New Transcription</CardTitle>
-                  <CardDescription>Upload an audio file and configure the options below.</CardDescription>
+                  <CardDescription>
+                    Upload an audio file and configure the options below.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <FileUpload file={file} setFile={setFile} />
-                  {file && <FormProvider {...form}><TranscriptionOptionsForm /></FormProvider>}
+                  {file && (
+                    <FormProvider {...form}>
+                      <TranscriptionOptionsForm />
+                    </FormProvider>
+                  )}
                 </CardContent>
                 {file && (
                   <CardFooter>
-                    <Button onClick={form.handleSubmit(handleTranscribe)} className="w-full" size="lg">
+                    <Button
+                      onClick={form.handleSubmit(handleTranscribe)}
+                      className="w-full"
+                      size="lg"
+                    >
                       <Bot className="mr-2 h-5 w-5" />
                       Start Transcription
                     </Button>
@@ -355,19 +421,20 @@ export default function ScribePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Header 
-        view={view} 
-        onShowHistory={() => setView('history')} 
+      <Header
+        view={view}
+        onShowHistory={() => setView('history')}
         onShowNewTranscription={() => {
           resetTranscriptionState();
           setView('transcribe');
         }}
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
-      <main className="flex-grow p-4 md:p-8">
-        {renderContent()}
-      </main>
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <main className="flex-grow p-4 md:p-8">{renderContent()}</main>
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   );
 }
