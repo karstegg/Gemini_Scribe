@@ -41,22 +41,42 @@ const formSchema = z.object({
   referenceFiles: z.array(z.instanceof(File)),
 });
 
-function StreamingTranscription({ stream }: { stream: ReadableStream<string> }) {
-  const [transcription, setTranscription] = useState('');
+function useStreamedText(stream: ReadableStream<string> | null) {
+  const [text, setText] = useState('');
   
   useEffect(() => {
+    if (!stream) return;
+
+    let isCancelled = false;
     async function readStream() {
       const reader = stream.getReader();
       const decoder = new TextDecoder();
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        setTranscription(prev => prev + decoder.decode(value));
+      try {
+        while (!isCancelled) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          setText(prev => prev + decoder.decode(value, { stream: true }));
+        }
+      } catch (error) {
+        console.error("Error reading stream:", error);
+      } finally {
+        reader.releaseLock();
       }
     }
     readStream();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [stream]);
 
+  return text;
+}
+
+
+function StreamingTranscription({ stream }: { stream: ReadableStream<string> | null }) {
+  const transcription = useStreamedText(stream);
+  
   return <TranscriptionDisplay text={transcription} isStreaming={true} onTranscribeAnother={() => window.location.reload()} />;
 }
 
