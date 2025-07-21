@@ -5,7 +5,7 @@ export type View = 'transcribe' | 'history' | 'history_detail';
 export type Status = 'idle' | 'processing' | 'success' | 'error';
 
 export type TranscriptionOptions = {
-  model: 'gemini-1.5-flash-latest' | 'gemini-1.5-pro-latest';
+  model: 'gemini-2.5-flash' | 'gemini-2.5-pro';
   subject: string;
   transcriptionInstructions: string;
   speakerLabels: boolean;

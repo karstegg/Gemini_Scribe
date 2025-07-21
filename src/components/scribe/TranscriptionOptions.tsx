@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -30,6 +30,7 @@ import { FileUp, File as FileIcon, Settings2, X, Trash2 } from 'lucide-react';
 import type { TranscriptionOptions } from '@/types';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '../ui/card';
+import { buttonVariants } from '../ui/button';
 
 const recordingTypePrompts = {
   meeting: 'This is a recording of a team meeting. Please identify action items and key decisions.',
@@ -96,8 +97,8 @@ export function TranscriptionOptionsForm() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash</SelectItem>
-                      <SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro</SelectItem>
+                      <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                      <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

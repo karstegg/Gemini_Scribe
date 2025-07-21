@@ -32,7 +32,7 @@ import type { View, Status, TranscriptionOptions, HistoryItem } from '@/types';
 
 const formSchema = z.object({
   subject: z.string().min(1, 'Subject is required.'),
-  model: z.enum(['gemini-1.5-flash-latest', 'gemini-1.5-pro-latest']),
+  model: z.enum(['gemini-2.5-flash', 'gemini-2.5-pro']),
   transcriptionInstructions: z.string().optional(),
   speakerLabels: z.boolean(),
   addTimestamps: z.boolean(),
@@ -61,7 +61,7 @@ export default function ScribePage() {
   const form = useForm<TranscriptionOptions>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      model: 'gemini-1.5-pro-latest',
+      model: 'gemini-2.5-pro',
       subject: '',
       transcriptionInstructions: '',
       speakerLabels: true,
@@ -93,7 +93,7 @@ export default function ScribePage() {
     setStatus('idle');
     setError(null);
     form.reset({
-      model: 'gemini-1.5-pro-latest',
+      model: 'gemini-2.5-pro',
       subject: '',
       transcriptionInstructions: '',
       speakerLabels: true,
