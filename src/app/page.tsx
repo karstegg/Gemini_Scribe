@@ -61,7 +61,7 @@ export default function ScribePage() {
   const form = useForm<TranscriptionOptions>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      model: 'gemini-1.5-flash-latest',
+      model: 'gemini-1.5-pro-latest',
       subject: '',
       transcriptionInstructions: '',
       speakerLabels: true,
@@ -92,7 +92,16 @@ export default function ScribePage() {
     setTranscription('');
     setStatus('idle');
     setError(null);
-    form.reset();
+    form.reset({
+      model: 'gemini-1.5-pro-latest',
+      subject: '',
+      transcriptionInstructions: '',
+      speakerLabels: true,
+      addTimestamps: false,
+      generateSummary: true,
+      review: true,
+      referenceFiles: [],
+    });
   };
 
   const handleTranscribe = async (options: TranscriptionOptions) => {
@@ -181,7 +190,11 @@ export default function ScribePage() {
 
     } catch (e: any) {
       console.error(e);
-      setError(e.message || 'An unknown error occurred during transcription.');
+      let errorMessage = e.message || 'An unknown error occurred during transcription.';
+      if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
+          errorMessage = 'The AI service is currently busy. Please try again in a few moments.';
+      }
+      setError(errorMessage);
       setStatus('error');
     }
   };
