@@ -46,31 +46,39 @@ function useStreamedText(
   onStreamEnd: () => void
 ) {
   const [text, setText] = useState('');
-  const streamReadRef = useRef(false);
 
   useEffect(() => {
-    if (!stream || streamReadRef.current) {
-      return;
-    }
-    streamReadRef.current = true;
+    if (!stream) return;
 
-    const readStream = async () => {
-      const decoder = new TextDecoder();
-      const reader = stream.getReader();
+    const abortController = new AbortController();
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
 
+    const read = async () => {
       try {
-        for await (const chunk of stream) {
-          setText((prev) => prev + decoder.decode(chunk, { stream: true }));
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done || abortController.signal.aborted) {
+            break;
+          }
+          const chunk = decoder.decode(value, { stream: true });
+          setText((prev) => prev + chunk);
         }
       } catch (error) {
-        console.error('Stream reading failed:', error);
+        if (!abortController.signal.aborted) {
+          console.error('Stream reading failed:', error);
+        }
       } finally {
-        reader.releaseLock();
         onStreamEnd();
+        reader.releaseLock();
       }
     };
 
-    readStream();
+    read();
+
+    return () => {
+      abortController.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stream]);
 
