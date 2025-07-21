@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { History, Plus, Settings } from 'lucide-react';
+import { History, Home, Plus, Settings } from 'lucide-react';
 import type { View } from '@/types';
 
 type HeaderProps = {
@@ -32,8 +32,8 @@ export function Header({ view, onShowHistory, onShowNewTranscription, onOpenSett
           </>
         ) : (
           <Button variant="outline" size="sm" onClick={onShowNewTranscription}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Transcription
+            <Home className="mr-2 h-4 w-4" />
+            Home
           </Button>
         )}
       </div>
