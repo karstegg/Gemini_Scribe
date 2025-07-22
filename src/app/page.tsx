@@ -262,7 +262,13 @@ export default function ScribePage() {
           fileName: file.name,
           transcription: fullTranscription,
           options: {
-            ...options,
+            model: options.model,
+            subject: options.subject,
+            transcriptionInstructions: options.transcriptionInstructions,
+            speakerLabels: options.speakerLabels,
+            addTimestamps: options.addTimestamps,
+            generateSummary: options.generateSummary,
+            review: options.review,
             referenceFiles: options.referenceFiles.map((f) => ({
               name: f.name,
               size: f.size,
@@ -276,7 +282,7 @@ export default function ScribePage() {
         if (changelog) historyPayload.changelog = changelog;
 
         if (isCancelledRef.current) return;
-        await addHistoryItemToFirestore(user, historyPayload);
+        await addHistoryItemToFirestore(historyPayload);
         if (isCancelledRef.current) return;
       };
 
