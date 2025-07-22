@@ -58,9 +58,14 @@ function getInitializedAdminApp(): AdminApp {
       const decoded = Buffer.from(process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64, 'base64').toString('utf-8');
       credentials = JSON.parse(decoded);
     }
-    // Option 2: Full JSON string from a single environment variable
+    // Option 2: Use the service account file path (standard Firebase Admin approach)
     else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+      // Don't parse it as JSON - it's a file path, let Firebase Admin SDK handle it
+      const firebaseAdminConfig = {
+        storageBucket: storageBucket,
+      };
+      adminApp = initializeAdminApp(firebaseAdminConfig);
+      return adminApp;
     }
     // Option 3: Individual environment variables for each credential field
     else if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PROJECT_ID) {
