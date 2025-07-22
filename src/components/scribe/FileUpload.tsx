@@ -5,9 +5,7 @@ import { UploadCloud, File as FileIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
-import { getSettings } from '@/lib/settingsService';
 
-const MAX_FILE_SIZE = 31 * 1024 * 1024; // 31MB
 const ACCEPTED_FILE_TYPES = 'audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,audio/webm,audio/flac';
 const acceptedMimeTypes = ACCEPTED_FILE_TYPES.split(',');
 
@@ -23,16 +21,12 @@ export function FileUpload({ file, setFile, disabled = false }: FileUploadProps)
 
   const handleValidation = (selectedFile: File) => {
     setError(null);
-    const settings = getSettings();
 
     if (!acceptedMimeTypes.includes(selectedFile.type)) {
       setError(`Invalid file type. Please upload one of: ${acceptedMimeTypes.join(', ')}`);
       return false;
     }
-    if (!settings.disableFileSizeLimit && selectedFile.size > MAX_FILE_SIZE) {
-      setError(`File is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB. You can disable this limit in settings.`);
-      return false;
-    }
+    
     return true;
   };
 
@@ -125,7 +119,7 @@ export function FileUpload({ file, setFile, disabled = false }: FileUploadProps)
         >
           Browse File
         </label>
-        <p className="mt-4 text-xs text-muted-foreground">Max file size: 31MB (can be disabled in settings)</p>
+        <p className="mt-4 text-xs text-muted-foreground">Supported formats: MP3, WAV, M4A, FLAC, WEBM</p>
       </div>
       {error && (
         <Alert variant="destructive">

@@ -35,7 +35,6 @@ export type ReviewSettings = {
 };
 
 export type GlobalSettings = {
-  disableFileSizeLimit: boolean;
   standardTranscriptionInstructions: string;
   reviewSettings: ReviewSettings;
 };

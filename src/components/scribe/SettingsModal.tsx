@@ -32,7 +32,6 @@ type SettingsModalProps = {
 };
 
 const settingsSchema = z.object({
-  disableFileSizeLimit: z.boolean(),
   standardTranscriptionInstructions: z.string().optional(),
   reviewSettings: z.object({
     correctSpelling: z.boolean(),
@@ -125,16 +124,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         </FormItem>
                     )}
                 />
-            </div>
-            
-            <div className="space-y-4 rounded-lg border p-4">
-                <h3 className="font-semibold">Advanced</h3>
-                 <FormField control={form.control} name="disableFileSizeLimit" render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                    <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                    <FormLabel className='font-normal'>Disable file size limit (31MB)</FormLabel>
-                    </FormItem>
-                )} />
             </div>
 
             <DialogFooter>
