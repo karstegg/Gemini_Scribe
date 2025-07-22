@@ -97,6 +97,7 @@ export function TranscriptionOptionsForm() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="gemini-2.0-flash-lite">Gemini 2.0 Flash-Lite</SelectItem>
                       <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
                       <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
                     </SelectContent>

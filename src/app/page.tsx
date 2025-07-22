@@ -32,7 +32,7 @@ import type { View, Status, TranscriptionOptions, HistoryItem, ProcessingLog } f
 
 const formSchema = z.object({
   subject: z.string().min(1, 'Subject is required.'),
-  model: z.enum(['gemini-2.5-flash', 'gemini-2.5-pro']),
+  model: z.enum(['gemini-2.0-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro']),
   transcriptionInstructions: z.string().optional(),
   speakerLabels: z.boolean(),
   addTimestamps: z.boolean(),
@@ -42,16 +42,17 @@ const formSchema = z.object({
 });
 
 function useStreamedText(
-  stream: ReadableStream | null,
+  stream: ReadableStream<Uint8Array> | null,
   onStreamEnd: () => void
 ) {
   const [text, setText] = useState('');
-  const streamStarted = useRef(false);
+  const streamStartedRef = useRef(false);
 
   useEffect(() => {
-    if (!stream || streamStarted.current) return;
-    streamStarted.current = true;
+    if (!stream || streamStartedRef.current) return;
+    streamStartedRef.current = true;
 
+    const abortController = new AbortController();
     const reader = stream.getReader();
     const decoder = new TextDecoder();
 
@@ -59,14 +60,17 @@ function useStreamedText(
       try {
         while (true) {
           const { value, done } = await reader.read();
-          if (done) {
+          if (done || abortController.signal.aborted) {
             break;
           }
           const chunk = decoder.decode(value, { stream: true });
           setText((prev) => prev + chunk);
         }
       } catch (error) {
-        console.error('Stream reading failed:', error);
+        if (!abortController.signal.aborted) {
+          console.error('Stream reading failed:', error);
+        }
+        // Error will be handled by the main try-catch block
       } finally {
         onStreamEnd();
         reader.releaseLock();
@@ -74,6 +78,10 @@ function useStreamedText(
     };
 
     read();
+
+    return () => {
+      abortController.abort();
+    };
     // We only want this to run when the stream object itself changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stream]);
@@ -126,7 +134,7 @@ export default function ScribePage() {
   const form = useForm<TranscriptionOptions>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash-lite',
       subject: '',
       transcriptionInstructions: '',
       speakerLabels: true,
@@ -161,7 +169,7 @@ export default function ScribePage() {
     setError(null);
     isCancelledRef.current = true;
     form.reset({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash-lite',
       subject: '',
       transcriptionInstructions: '',
       speakerLabels: true,
