@@ -14,6 +14,14 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Debug logging - remove after fixing
+console.log('🔧 Firebase Config Debug:', {
+  apiKey: firebaseConfig.apiKey ? `✅ ${firebaseConfig.apiKey.substring(0, 10)}...` : '❌ Missing',
+  authDomain: firebaseConfig.authDomain || '❌ Missing',
+  projectId: firebaseConfig.projectId || '❌ Missing',
+  storageBucket: firebaseConfig.storageBucket || '❌ Missing',
+});
+
 // Validate Firebase configuration
 if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
   console.error('Firebase configuration is missing. Please check your environment variables.');
