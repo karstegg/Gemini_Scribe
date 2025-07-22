@@ -11,6 +11,7 @@ export const defaultReviewSettings: ReviewSettings = {
 };
 
 export const defaultSettings: GlobalSettings = {
+  disableFileSizeLimit: false,
   standardTranscriptionInstructions: '',
   reviewSettings: defaultReviewSettings,
 };
