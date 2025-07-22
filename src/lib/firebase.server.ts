@@ -78,14 +78,7 @@ function getInitializedAdminApp(): AdminApp {
       };
     }
     else {
-      // If no credentials are found, import from the local file as a last resort for local dev.
-      // This is not recommended for production.
-      try {
-        const serviceAccount = require('../../../serviceAccountKey.json');
-        credentials = serviceAccount;
-      } catch (e) {
-         throw new Error('No valid Firebase credentials found in environment variables and serviceAccountKey.json could not be found.');
-      }
+      throw new Error('No valid Firebase credentials found in environment variables.');
     }
 
     // The cert function expects the private key to be correctly formatted.

@@ -14,7 +14,10 @@ const firebaseConfig = {
 };
 
 export function isFirebaseConfigured() {
-    return firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.storageBucket;
+    // This function will now check if the required env vars are provided.
+    return firebaseConfig.apiKey &&
+           firebaseConfig.projectId &&
+           firebaseConfig.storageBucket;
 }
 
 // Client-side Firebase App
@@ -29,7 +32,7 @@ export const storage = app ? getStorage(app) : null;
 export const authenticateUser = (): Promise<User | null> => {
   return new Promise((resolve, reject) => {
     if (!auth) {
-        return reject(new Error("Firebase is not configured."));
+        return reject(new Error("Firebase is not configured. Please check your environment variables."));
     }
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       unsubscribe();
