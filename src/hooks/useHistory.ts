@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import type { User } from 'firebase/auth';
 import { listenToHistory } from '@/lib/firestoreService';
-import { isFirebaseConfigured } from '@/lib/firebase';
 import type { HistoryItem } from '@/types';
 
 export const useHistory = (user: User | null) => {
@@ -12,12 +11,6 @@ export const useHistory = (user: User | null) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isFirebaseConfigured()) {
-        setError("Firebase is not configured. Please check your environment variables.");
-        setLoading(false);
-        return;
-    }
-
     if (user) {
       setLoading(true);
       const unsubscribe = listenToHistory(

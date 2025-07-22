@@ -1,12 +1,12 @@
 import { collection, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, onSnapshot, type Unsubscribe } from "firebase/firestore";
-import { db, auth, authenticateUser, isFirebaseConfigured } from "./firebase";
+import { db, auth, authenticateUser } from "./firebase";
 import type { HistoryItem } from "@/types";
 import type { User } from "firebase/auth";
 
 type HistoryPayload = Omit<HistoryItem, 'id' | 'createdAt'>;
 
 export const addHistoryItemToFirestore = async (item: HistoryPayload) => {
-  if (!isFirebaseConfigured() || !db || !auth) {
+  if (!db || !auth) {
     throw new Error("Firebase is not configured. History cannot be saved.");
   }
   
@@ -21,7 +21,7 @@ export const addHistoryItemToFirestore = async (item: HistoryPayload) => {
 };
 
 export const deleteHistoryItemFromFirestore = async (itemId: string) => {
-  if (!isFirebaseConfigured() || !db) {
+  if (!db) {
     throw new Error("Firebase is not configured.");
   }
   const user = auth.currentUser;
@@ -38,7 +38,7 @@ export const listenToHistory = (
     callback: (history: HistoryItem[]) => void,
     onError: (error: Error) => void
 ): Unsubscribe | (() => void) => {
-    if (!isFirebaseConfigured() || !db) {
+    if (!db) {
         onError(new Error("Firebase is not configured."));
         return () => {};
     }

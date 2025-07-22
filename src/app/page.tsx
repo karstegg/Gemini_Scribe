@@ -24,7 +24,7 @@ import { streamTranscriptionFromStorage } from '@/ai/flows/transcribe-from-stora
 import { reviewAndCorrectTranscription } from '@/ai/flows/review-and-correct-transcription';
 import { summarizeTranscription } from '@/ai/flows/summarize-transcription';
 
-import { authenticateUser, isFirebaseConfigured } from '@/lib/firebase';
+import { authenticateUser } from '@/lib/firebase';
 import { addHistoryItemToFirestore, deleteHistoryItemFromFirestore } from '@/lib/firestoreService';
 import { uploadFileToStorage } from '@/lib/storageService';
 import { getSettings } from '@/lib/settingsService';
@@ -82,20 +82,13 @@ export default function ScribePage() {
   });
 
   useEffect(() => {
-    if (isFirebaseConfigured()) {
-      authenticateUser()
-        .then(setUser)
-        .catch((err) => {
-          console.error(err);
-          setError("Authentication failed. Couldn't connect to our services.");
-        })
-        .finally(() => setIsAuthReady(true));
-    } else {
-      setError(
-        'Firebase is not configured. History and transcription features will be unavailable.'
-      );
-      setIsAuthReady(true);
-    }
+    authenticateUser()
+      .then(setUser)
+      .catch((err) => {
+        console.error(err);
+        setError("Authentication failed. Couldn't connect to our services.");
+      })
+      .finally(() => setIsAuthReady(true));
   }, []);
 
   const addLog = (message: string, status: ProcessingLog['status'], progress?: number) => {
