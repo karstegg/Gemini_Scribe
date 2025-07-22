@@ -88,18 +88,17 @@ function useStreamedText(
 
 
 function StreamingTranscription({
-  stream,
+  text,
+  isStreaming,
   onTranscribeAnother,
 }: {
-  stream: ReadableStream<string> | null;
+  text: string;
+  isStreaming: boolean;
   onTranscribeAnother: () => void;
 }) {
-  const [isStreaming, setIsStreaming] = useState(true);
-  const transcription = useStreamedText(stream, () => setIsStreaming(false));
-
   return (
     <TranscriptionDisplay
-      text={transcription}
+      text={text}
       isStreaming={isStreaming}
       onTranscribeAnother={onTranscribeAnother}
     />
@@ -114,8 +113,8 @@ export default function ScribePage() {
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   const [file, setFile] = useState<File | null>(null);
-  const [transcriptionStream, setTranscriptionStream] =
-    useState<ReadableStream<string> | null>(null);
+  const [transcriptionText, setTranscriptionText] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
 
   const isCancelledRef = useRef(false);
 
@@ -162,7 +161,8 @@ export default function ScribePage() {
 
   const resetTranscriptionState = () => {
     setFile(null);
-    setTranscriptionStream(null);
+    setTranscriptionText('');
+    setIsStreaming(false);
     setStatus('idle');
     setError(null);
     isCancelledRef.current = true;
@@ -183,6 +183,8 @@ export default function ScribePage() {
     isCancelledRef.current = false;
     setStatus('processing');
     setError(null);
+    setTranscriptionText('');
+    setIsStreaming(true);
 
     try {
       const audioDataUri = await fileToBase64(file);
@@ -215,25 +217,29 @@ export default function ScribePage() {
       });
 
       if (isCancelledRef.current) return;
-
-      const [streamForUi, streamForSaving] = stream.tee();
-
-      setTranscriptionStream(streamForUi);
+      
       setStatus('success');
+      
+      let fullTranscription = '';
+      const reader = stream.getReader();
+      const decoder = new TextDecoder();
+
+      while(true) {
+        const { value, done } = await reader.read();
+        if (done || isCancelledRef.current) {
+          break;
+        }
+        const chunk = decoder.decode(value);
+        fullTranscription += chunk;
+        setTranscriptionText(fullTranscription);
+      }
+
+      setIsStreaming(false);
+      
+      if (isCancelledRef.current) return;
 
       // Post-streaming tasks run in the background
       const processInBackground = async () => {
-        let fullTranscription = '';
-        const reader = streamForSaving.getReader();
-        const decoder = new TextDecoder();
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          fullTranscription += decoder.decode(value);
-        }
-
-        if (isCancelledRef.current) return;
-
         let correctedTranscription: string | undefined;
         let changelog: string | undefined;
         let summary: string | undefined;
@@ -311,6 +317,10 @@ export default function ScribePage() {
       }
       setError(errorMessage);
       setStatus('error');
+    } finally {
+        if (!isCancelledRef.current) {
+            setIsStreaming(false);
+        }
     }
   };
 
@@ -430,13 +440,12 @@ export default function ScribePage() {
               />
             );
           case 'success':
-            return transcriptionStream ? (
+            return (
               <StreamingTranscription
-                stream={transcriptionStream}
+                text={transcriptionText}
+                isStreaming={isStreaming}
                 onTranscribeAnother={() => window.location.reload()}
               />
-            ) : (
-              <p>Starting stream...</p>
             );
           case 'error':
             return (
