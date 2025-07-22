@@ -305,15 +305,13 @@ export default function ScribePage() {
     } catch (e: any) {
       if (isCancelledRef.current) return;
       console.error(e);
-      let errorMessage =
-        e.message || 'An unknown error occurred during transcription.';
+      let errorMessage = e.message || 'An unknown error occurred during transcription.';
       if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
-        errorMessage =
-          'The AI service is currently busy or overloaded. Please try again in a few moments.';
-      }
-      if (errorMessage.includes('429')) {
-        errorMessage =
-          "You've exceeded the rate limit for the AI model. Please try again later.";
+        errorMessage = 'The AI service is currently busy or overloaded. Please try again in a few moments.';
+      } else if (errorMessage.includes('429')) {
+        errorMessage = "You've exceeded the rate limit for the AI model. Please try again later.";
+      } else if (errorMessage.includes('An unexpected response was received from the server')) {
+        errorMessage = "The AI model returned an unexpected response. This can happen with very large files that exceed the model's size limit. Please try a smaller file.";
       }
       setError(errorMessage);
       setStatus('error');
