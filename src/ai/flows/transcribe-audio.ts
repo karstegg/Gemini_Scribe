@@ -3,10 +3,8 @@
 /**
  * @fileOverview This file defines a Genkit flow for transcribing audio files using the Gemini API.
  *
- * - transcribeAudio - A function that handles the audio transcription process.
  * - streamTranscription - A server action that provides a stream of transcription text.
  * - TranscribeAudioInput - The input type for the transcribeAudio function.
- * - TranscribeAudioOutput - The return type for the transcribeAudio function.
  */
 
 import {ai} from '@/ai/genkit';
@@ -28,42 +26,6 @@ const TranscribeAudioInputSchema = z.object({
   referenceFiles: z.array(z.string()).describe('A list of reference files to use for context.'),
 });
 export type TranscribeAudioInput = z.infer<typeof TranscribeAudioInputSchema>;
-
-const TranscribeAudioOutputSchema = z.object({
-  transcription: z.string().describe('The transcribed text.'),
-});
-export type TranscribeAudioOutput = z.infer<typeof TranscribeAudioOutputSchema>;
-
-export async function transcribeAudio(input: TranscribeAudioInput): Promise<TranscribeAudioOutput> {
-  return transcribeAudioFlow(input);
-}
-
-const prompt = ai.definePrompt({
-  name: 'transcribeAudioPrompt',
-  input: {schema: TranscribeAudioInputSchema},
-  output: {schema: TranscribeAudioOutputSchema},
-  prompt: `You are an expert transcriptionist. Transcribe the provided audio recording into text accurately.
-
-Subject: {{{subject}}}
-Transcription Instructions: {{{transcriptionInstructions}}}
-
-Your output MUST be a valid JSON object matching the requested schema. Do not include any other text or markdown fences.
-
-Audio: {{media url=audioDataUri}}
-`,
-});
-
-const transcribeAudioFlow = ai.defineFlow(
-  {
-    name: 'transcribeAudioFlow',
-    inputSchema: TranscribeAudioInputSchema,
-    outputSchema: TranscribeAudioOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
-  }
-);
 
 
 // New server action for streaming
