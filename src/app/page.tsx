@@ -50,12 +50,12 @@ function useStreamedText(
 
   useEffect(() => {
     if (!stream || streamStarted.current) return;
-
     streamStarted.current = true;
+
     const reader = stream.getReader();
     const decoder = new TextDecoder();
 
-    async function read() {
+    const read = async () => {
       try {
         while (true) {
           const { value, done } = await reader.read();
@@ -66,12 +66,12 @@ function useStreamedText(
           setText((prev) => prev + chunk);
         }
       } catch (error) {
-         console.error('Stream reading failed:', error);
+        console.error('Stream reading failed:', error);
       } finally {
         onStreamEnd();
         reader.releaseLock();
       }
-    }
+    };
 
     read();
     // We only want this to run when the stream object itself changes.
@@ -126,7 +126,7 @@ export default function ScribePage() {
   const form = useForm<TranscriptionOptions>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      model: 'gemini-2.5-pro',
+      model: 'gemini-2.5-flash',
       subject: '',
       transcriptionInstructions: '',
       speakerLabels: true,
@@ -161,7 +161,7 @@ export default function ScribePage() {
     setError(null);
     isCancelledRef.current = true;
     form.reset({
-      model: 'gemini-2.5-pro',
+      model: 'gemini-2.5-flash',
       subject: '',
       transcriptionInstructions: '',
       speakerLabels: true,
