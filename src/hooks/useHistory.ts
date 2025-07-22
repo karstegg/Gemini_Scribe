@@ -21,6 +21,7 @@ export const useHistory = (user: User | null) => {
     if (user) {
       setLoading(true);
       const unsubscribe = listenToHistory(
+        user,
         (newHistory) => {
           setHistory(newHistory);
           setLoading(false);

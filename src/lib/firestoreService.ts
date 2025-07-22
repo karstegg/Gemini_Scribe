@@ -1,6 +1,7 @@
 import { collection, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, onSnapshot, type Unsubscribe } from "firebase/firestore";
 import { db, auth, authenticateUser, isFirebaseConfigured } from "./firebase";
 import type { HistoryItem } from "@/types";
+import type { User } from "firebase/auth";
 
 type HistoryWithoutId = Omit<HistoryItem, 'id' | 'createdAt'>;
 
@@ -29,15 +30,16 @@ export const deleteHistoryItemFromFirestore = async (itemId: string) => {
 };
 
 export const listenToHistory = (
+    user: User,
     callback: (history: HistoryItem[]) => void,
     onError: (error: Error) => void
 ): Unsubscribe | (() => void) => {
-    if (!isFirebaseConfigured() || !db || !auth?.currentUser) {
-        onError(new Error("Firebase is not configured or user is not authenticated."));
+    if (!isFirebaseConfigured() || !db) {
+        onError(new Error("Firebase is not configured."));
         return () => {};
     }
 
-    const historyCollection = collection(db, `users/${auth.currentUser.uid}/history`);
+    const historyCollection = collection(db, `users/${user.uid}/history`);
     const q = query(historyCollection, orderBy("createdAt", "desc"));
     
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
