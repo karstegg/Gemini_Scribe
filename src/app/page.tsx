@@ -17,7 +17,7 @@ import { SettingsModal } from '@/components/scribe/SettingsModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, Bot } from 'lucide-react';
+import { AlertCircle, Bot, Zap, Clock, Save } from 'lucide-react';
 
 import { streamTranscription } from '@/ai/flows/transcribe-audio';
 import { reviewAndCorrectTranscription } from '@/ai/flows/review-and-correct-transcription';
@@ -70,7 +70,6 @@ function useStreamedText(
         if (!abortController.signal.aborted) {
           console.error('Stream reading failed:', error);
         }
-        // Error will be handled by the main try-catch block
       } finally {
         onStreamEnd();
         reader.releaseLock();
@@ -82,12 +81,11 @@ function useStreamedText(
     return () => {
       abortController.abort();
     };
-    // We only want this to run when the stream object itself changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stream]);
+  }, [stream, onStreamEnd]);
 
   return text;
 }
+
 
 function StreamingTranscription({
   stream,
@@ -278,7 +276,7 @@ export default function ScribePage() {
         if (changelog) historyPayload.changelog = changelog;
 
         if (isCancelledRef.current) return;
-        await addHistoryItemToFirestore(historyPayload);
+        await addHistoryItemToFirestore(user, historyPayload);
         if (isCancelledRef.current) return;
       };
 
@@ -322,6 +320,64 @@ export default function ScribePage() {
       setError(e.message || 'Failed to delete item.');
     }
   };
+  
+  const TranscribeView = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center min-h-[calc(100vh-120px)]">
+      <div className="space-y-6">
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tighter">
+          Smarter Audio Transcription with AI
+        </h1>
+        <p className="text-lg text-muted-foreground">
+          Just upload your audio, and let Gemini Scribe handle the rest. Get accurate, fast, and organized transcriptions with speaker labels, summaries, and more.
+        </p>
+        <ul className="space-y-4">
+          <li className="flex items-center gap-3">
+            <Zap className="h-6 w-6 text-primary" />
+            <span className="font-medium">Fast & Accurate Transcription</span>
+          </li>
+          <li className="flex items-center gap-3">
+            <Clock className="h-6 w-6 text-primary" />
+            <span className="font-medium">AI-Powered Summaries & Review</span>
+          </li>
+          <li className="flex items-center gap-3">
+            <Save className="h-6 w-6 text-primary" />
+            <span className="font-medium">Securely Saved History</span>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <Card className="w-full max-w-lg mx-auto">
+          <CardHeader>
+            <CardTitle>New Transcription</CardTitle>
+            <CardDescription>
+              Upload an audio file and configure the options below.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <FileUpload file={file} setFile={setFile} />
+            {file && (
+              <FormProvider {...form}>
+                <TranscriptionOptionsForm />
+              </FormProvider>
+            )}
+          </CardContent>
+          {file && (
+            <CardFooter>
+              <Button
+                onClick={form.handleSubmit(handleTranscribe)}
+                className="w-full"
+                size="lg"
+              >
+                <Bot className="mr-2 h-5 w-5" />
+                Start Transcription
+              </Button>
+            </CardFooter>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+
 
   const renderContent = () => {
     switch (view) {
@@ -355,7 +411,6 @@ export default function ScribePage() {
       default:
         switch (status) {
           case 'processing':
-            // Simple loader while we initiate the stream
             return (
               <Loader
                 logs={[
@@ -397,36 +452,7 @@ export default function ScribePage() {
             );
           case 'idle':
           default:
-            return (
-              <Card className="w-full max-w-2xl mx-auto">
-                <CardHeader>
-                  <CardTitle>New Transcription</CardTitle>
-                  <CardDescription>
-                    Upload an audio file and configure the options below.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <FileUpload file={file} setFile={setFile} />
-                  {file && (
-                    <FormProvider {...form}>
-                      <TranscriptionOptionsForm />
-                    </FormProvider>
-                  )}
-                </CardContent>
-                {file && (
-                  <CardFooter>
-                    <Button
-                      onClick={form.handleSubmit(handleTranscribe)}
-                      className="w-full"
-                      size="lg"
-                    >
-                      <Bot className="mr-2 h-5 w-5" />
-                      Start Transcription
-                    </Button>
-                  </CardFooter>
-                )}
-              </Card>
-            );
+            return <TranscribeView />;
         }
     }
   };

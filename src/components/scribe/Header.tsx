@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { History, Home, Plus, Settings } from 'lucide-react';
+import { History, Home, Settings, Bot } from 'lucide-react';
 import type { View } from '@/types';
 
 type HeaderProps = {
@@ -14,9 +14,12 @@ type HeaderProps = {
 export function Header({ view, onShowHistory, onShowNewTranscription, onOpenSettings }: HeaderProps) {
   return (
     <header className="flex items-center justify-between p-4 border-b border-border/50">
-      <div>
-        <h1 className="text-2xl font-bold text-primary">Gemini Scribe</h1>
-        <p className="text-muted-foreground">AI-powered audio transcription</p>
+      <div className="flex items-center gap-3">
+        <Bot className="h-8 w-8 text-primary" />
+        <div>
+            <h1 className="text-2xl font-bold">Gemini Scribe</h1>
+            <p className="text-muted-foreground">AI-powered audio transcription</p>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         {view === 'transcribe' ? (
