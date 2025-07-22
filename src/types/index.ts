@@ -4,6 +4,8 @@ export type View = 'transcribe' | 'history' | 'history_detail';
 
 export type Status = 'idle' | 'processing' | 'success' | 'error';
 
+export type ProcessingStatus = 'uploading' | 'transcribing' | 'saving' | 'reviewing' | 'summarizing';
+
 export type TranscriptionOptions = {
   model: 'gemini-2.0-flash-lite' | 'gemini-2.5-flash' | 'gemini-2.5-pro';
   subject: string;
@@ -18,6 +20,7 @@ export type TranscriptionOptions = {
 export type HistoryItem = {
   id: string;
   fileName: string;
+  fileStoragePath: string;
   createdAt: Timestamp;
   transcription: string;
   correctedTranscription?: string;
@@ -43,4 +46,5 @@ export type ProcessingLog = {
   message: string;
   status: 'pending' | 'in_progress' | 'done' | 'error';
   timestamp: Date;
+  progress?: number;
 };

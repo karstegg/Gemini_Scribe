@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, signInAnonymously, onAuthStateChanged, type User } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,7 +13,7 @@ const firebaseConfig = {
 };
 
 function isFirebaseConfigured() {
-    return firebaseConfig.apiKey && firebaseConfig.projectId;
+    return firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.storageBucket;
 }
 
 const app = isFirebaseConfigured() 
@@ -21,6 +22,7 @@ const app = isFirebaseConfigured()
 
 export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
+export const storage = app ? getStorage(app) : null;
 
 export const authenticateUser = (): Promise<User | null> => {
   return new Promise((resolve, reject) => {

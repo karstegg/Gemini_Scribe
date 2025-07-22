@@ -3,9 +3,9 @@ import { db, auth, authenticateUser, isFirebaseConfigured } from "./firebase";
 import type { HistoryItem } from "@/types";
 import type { User } from "firebase/auth";
 
-type HistoryWithoutId = Omit<HistoryItem, 'id' | 'createdAt'>;
+type HistoryPayload = Omit<HistoryItem, 'id' | 'createdAt'>;
 
-export const addHistoryItemToFirestore = async (item: HistoryWithoutId) => {
+export const addHistoryItemToFirestore = async (item: HistoryPayload) => {
   if (!isFirebaseConfigured() || !db || !auth) {
     throw new Error("Firebase is not configured. History cannot be saved.");
   }

@@ -1,6 +1,7 @@
 import { Loader2, CheckCircle2, XCircle, CircleDashed } from 'lucide-react';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import type { ProcessingLog } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -26,27 +27,35 @@ export function Loader({ logs, onCancel }: LoaderProps) {
           <Loader2 className="h-6 w-6 animate-spin" />
           <span>Processing Transcription</span>
         </CardTitle>
+        <CardDescription>
+          Please keep this window open while we process your file.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <ul className="space-y-3 rounded-lg border bg-background/50 p-4">
             {logs.map((log, index) => (
-              <li key={index} className="flex items-start gap-4 text-sm">
-                <div className="flex-shrink-0 pt-0.5">{statusIcons[log.status]}</div>
-                <div className="flex-grow">
-                  <p
-                    className={cn(
-                      'font-medium',
-                      log.status === 'pending' && 'text-muted-foreground',
-                      log.status === 'error' && 'text-destructive'
-                    )}
-                  >
-                    {log.message}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {log.timestamp.toLocaleTimeString()}
-                  </p>
+              <li key={index} className="flex flex-col gap-2 text-sm">
+                <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 pt-0.5">{statusIcons[log.status]}</div>
+                    <div className="flex-grow">
+                        <p
+                            className={cn(
+                            'font-medium',
+                            log.status === 'pending' && 'text-muted-foreground',
+                            log.status === 'error' && 'text-destructive'
+                            )}
+                        >
+                            {log.message}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                            {log.timestamp.toLocaleTimeString()}
+                        </p>
+                    </div>
                 </div>
+                {log.status === 'in_progress' && typeof log.progress === 'number' && (
+                    <Progress value={log.progress} className="h-2" />
+                )}
               </li>
             ))}
           </ul>

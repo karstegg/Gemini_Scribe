@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Download } from 'lucide-react';
 import type { HistoryItem } from '@/types';
+import { getFileDownloadURL } from '@/lib/storageService';
 
 type HistoryDetailProps = {
   item: HistoryItem;
@@ -18,6 +19,22 @@ export function HistoryDetail({ item, onBack }: HistoryDetailProps) {
   const transcriptionToShow = showCorrected && item.correctedTranscription 
     ? item.correctedTranscription 
     : item.transcription;
+  
+  const handleDownload = async () => {
+    try {
+        const url = await getFileDownloadURL(item.fileStoragePath);
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = "_blank"; // Or handle with fetch for same-tab download
+        a.download = item.fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    } catch(e) {
+        console.error("Failed to get download URL", e);
+        // You could show a toast message here
+    }
+  }
 
   return (
     <div className="grid md:grid-cols-3 gap-6">
@@ -54,6 +71,17 @@ export function HistoryDetail({ item, onBack }: HistoryDetailProps) {
       </div>
 
       <div className="space-y-6">
+        <Card>
+            <CardHeader>
+                <CardTitle>Original File</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={handleDownload} variant="outline" className='w-full'>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download {item.fileName}
+                </Button>
+            </CardContent>
+        </Card>
         {item.summary && (
           <Card>
             <CardHeader><CardTitle>AI Summary</CardTitle></CardHeader>
