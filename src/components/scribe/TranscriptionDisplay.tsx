@@ -32,7 +32,7 @@ export function TranscriptionDisplay({ text, isStreaming, onTranscribeAnother }:
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Transcription</CardTitle>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleCopy} disabled={isStreaming}>
+          <Button variant="outline" size="sm" onClick={handleCopy} disabled={isStreaming || !text}>
             {hasCopied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
             {hasCopied ? 'Copied!' : 'Copy'}
           </Button>

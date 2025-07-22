@@ -41,70 +41,6 @@ const formSchema = z.object({
   referenceFiles: z.array(z.instanceof(File)),
 });
 
-function useStreamedText(
-  stream: ReadableStream<Uint8Array> | null,
-  onStreamEnd: () => void
-) {
-  const [text, setText] = useState('');
-  const streamStartedRef = useRef(false);
-
-  useEffect(() => {
-    if (!stream || streamStartedRef.current) return;
-    streamStartedRef.current = true;
-
-    const abortController = new AbortController();
-    const reader = stream.getReader();
-    const decoder = new TextDecoder();
-
-    const read = async () => {
-      try {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done || abortController.signal.aborted) {
-            break;
-          }
-          const chunk = decoder.decode(value, { stream: true });
-          setText((prev) => prev + chunk);
-        }
-      } catch (error) {
-        if (!abortController.signal.aborted) {
-          console.error('Stream reading failed:', error);
-        }
-      } finally {
-        onStreamEnd();
-        reader.releaseLock();
-      }
-    };
-
-    read();
-
-    return () => {
-      abortController.abort();
-    };
-  }, [stream, onStreamEnd]);
-
-  return text;
-}
-
-
-function StreamingTranscription({
-  text,
-  isStreaming,
-  onTranscribeAnother,
-}: {
-  text: string;
-  isStreaming: boolean;
-  onTranscribeAnother: () => void;
-}) {
-  return (
-    <TranscriptionDisplay
-      text={text}
-      isStreaming={isStreaming}
-      onTranscribeAnother={onTranscribeAnother}
-    />
-  );
-}
-
 export default function ScribePage() {
   const [view, setView] = useState<View>('transcribe');
   const [status, setStatus] = useState<Status>('idle');
@@ -178,13 +114,78 @@ export default function ScribePage() {
     });
   };
 
+  const processInBackground = async (
+    fullTranscription: string,
+    options: TranscriptionOptions,
+    originalFile: File
+  ) => {
+    let correctedTranscription: string | undefined;
+    let changelog: string | undefined;
+    let summary: string | undefined;
+
+    try {
+      if (options.review) {
+        const reviewSettings = getSettings().reviewSettings;
+        const reviewResult = await reviewAndCorrectTranscription({
+          transcription: fullTranscription,
+          reviewSettings,
+        });
+        if (isCancelledRef.current) return;
+        correctedTranscription = reviewResult.correctedTranscription;
+        changelog = reviewResult.changelog;
+      }
+
+      const textForSummary = correctedTranscription || fullTranscription;
+      if (options.generateSummary) {
+        const summaryResult = await summarizeTranscription({
+          transcription: textForSummary,
+        });
+        if (isCancelledRef.current) return;
+        summary = summaryResult.summary;
+      }
+
+      const historyPayload: any = {
+        fileName: originalFile.name,
+        transcription: fullTranscription,
+        options: {
+          model: options.model,
+          subject: options.subject,
+          transcriptionInstructions: options.transcriptionInstructions,
+          speakerLabels: options.speakerLabels,
+          addTimestamps: options.addTimestamps,
+          generateSummary: options.generateSummary,
+          review: options.review,
+          referenceFiles: options.referenceFiles.map((f) => ({
+            name: f.name,
+            size: f.size,
+          })),
+        },
+      };
+
+      if (correctedTranscription) historyPayload.correctedTranscription = correctedTranscription;
+      if (summary) historyPayload.summary = summary;
+      if (changelog) historyPayload.changelog = changelog;
+
+      if (isCancelledRef.current) return;
+      await addHistoryItemToFirestore(user, historyPayload);
+    } catch (e: any) {
+       if (isCancelledRef.current) {
+          console.error('Error in background processing after cancellation:', e);
+          return;
+        }
+        console.error('Background processing failed:', e);
+        setError(e.message || 'An error occurred while saving the transcription.');
+    }
+  };
+
+
   const handleTranscribe = async (options: TranscriptionOptions) => {
     if (!file) return;
+
     isCancelledRef.current = false;
     setStatus('processing');
     setError(null);
     setTranscriptionText('');
-    setIsStreaming(true);
 
     try {
       const audioDataUri = await fileToBase64(file);
@@ -196,12 +197,10 @@ export default function ScribePage() {
         finalInstructions = `${globalSettings.standardTranscriptionInstructions}\n\n${finalInstructions}`;
       }
       if (options.speakerLabels) {
-        finalInstructions +=
-          '\nPlease identify and label different speakers (e.g., Speaker 1, Speaker 2).';
+        finalInstructions += '\nPlease identify and label different speakers (e.g., Speaker 1, Speaker 2).';
       }
       if (options.addTimestamps) {
-        finalInstructions +=
-          '\nPlease include timestamps for key sections or speaker changes.';
+        finalInstructions += '\nPlease include timestamps for key sections or speaker changes.';
       }
 
       const stream = await streamTranscription({
@@ -213,100 +212,47 @@ export default function ScribePage() {
         addTimestamps: options.addTimestamps,
         generateSummary: options.generateSummary,
         review: options.review,
-        referenceFiles: [],
+        referenceFiles: [], // Not yet implemented in flow
       });
 
       if (isCancelledRef.current) return;
       
       setStatus('success');
-      
+      setIsStreaming(true);
+
       let fullTranscription = '';
       const reader = stream.getReader();
       const decoder = new TextDecoder();
 
-      while(true) {
-        const { value, done } = await reader.read();
-        if (done || isCancelledRef.current) {
-          break;
-        }
-        const chunk = decoder.decode(value);
-        fullTranscription += chunk;
-        setTranscriptionText(fullTranscription);
-      }
-
-      setIsStreaming(false);
-      
-      if (isCancelledRef.current) return;
-
-      // Post-streaming tasks run in the background
-      const processInBackground = async () => {
-        let correctedTranscription: string | undefined;
-        let changelog: string | undefined;
-        let summary: string | undefined;
-
-        if (options.review) {
-          const reviewSettings = getSettings().reviewSettings;
-          const reviewResult = await reviewAndCorrectTranscription({
-            transcription: fullTranscription,
-            reviewSettings,
-          });
-          if (isCancelledRef.current) return;
-          correctedTranscription = reviewResult.correctedTranscription;
-          changelog = reviewResult.changelog;
+      const readStream = async () => {
+        while (true) {
+          if (isCancelledRef.current) {
+            reader.cancel();
+            break;
+          }
+          const { value, done } = await reader.read();
+          if (done) {
+            break;
+          }
+          const chunk = decoder.decode(value);
+          fullTranscription += chunk;
+          setTranscriptionText((prev) => prev + chunk);
         }
 
-        const textForSummary = correctedTranscription || fullTranscription;
-        if (options.generateSummary) {
-          const summaryResult = await summarizeTranscription({
-            transcription: textForSummary,
-          });
-          if (isCancelledRef.current) return;
-          summary = summaryResult.summary;
+        setIsStreaming(false);
+
+        if (!isCancelledRef.current) {
+          processInBackground(fullTranscription, options, file);
         }
-
-        const historyPayload: any = {
-          fileName: file.name,
-          transcription: fullTranscription,
-          options: {
-            model: options.model,
-            subject: options.subject,
-            transcriptionInstructions: options.transcriptionInstructions,
-            speakerLabels: options.speakerLabels,
-            addTimestamps: options.addTimestamps,
-            generateSummary: options.generateSummary,
-            review: options.review,
-            referenceFiles: options.referenceFiles.map((f) => ({
-              name: f.name,
-              size: f.size,
-            })),
-          },
-        };
-
-        if (correctedTranscription)
-          historyPayload.correctedTranscription = correctedTranscription;
-        if (summary) historyPayload.summary = summary;
-        if (changelog) historyPayload.changelog = changelog;
-
-        if (isCancelledRef.current) return;
-        await addHistoryItemToFirestore(historyPayload);
-        if (isCancelledRef.current) return;
       };
+      
+      readStream();
 
-      processInBackground().catch((e) => {
-        // Don't update UI if cancelled, just log the error
-        if (isCancelledRef.current) {
-          console.error('Error in background processing after cancellation:', e);
-          return;
-        }
-        console.error('Background processing failed:', e);
-        setError(e.message || 'An error occurred while saving the transcription.');
-        // We don't set status to error here because the user has already received the stream
-      });
     } catch (e: any) {
       if (isCancelledRef.current) return;
       console.error(e);
       let errorMessage = e.message || 'An unknown error occurred during transcription.';
-      if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
+       if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
         errorMessage = 'The AI service is currently busy or overloaded. Please try again in a few moments.';
       } else if (errorMessage.includes('429')) {
         errorMessage = "You've exceeded the rate limit for the AI model. Please try again later.";
@@ -315,12 +261,9 @@ export default function ScribePage() {
       }
       setError(errorMessage);
       setStatus('error');
-    } finally {
-        if (!isCancelledRef.current) {
-            setIsStreaming(false);
-        }
     }
   };
+
 
   const handleDeleteHistoryItem = async (id: string) => {
     try {
@@ -439,10 +382,10 @@ export default function ScribePage() {
             );
           case 'success':
             return (
-              <StreamingTranscription
+              <TranscriptionDisplay
                 text={transcriptionText}
                 isStreaming={isStreaming}
-                onTranscribeAnother={() => window.location.reload()}
+                onTranscribeAnother={resetTranscriptionState}
               />
             );
           case 'error':
