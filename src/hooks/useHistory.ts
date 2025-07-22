@@ -34,7 +34,10 @@ export const useHistory = (user: User | null) => {
         }
       );
 
-      return () => unsubscribe();
+      // Make sure unsubscribe is a function before calling it.
+      if (typeof unsubscribe === 'function') {
+        return () => unsubscribe();
+      }
     } else {
         setHistory([]);
         setLoading(false);

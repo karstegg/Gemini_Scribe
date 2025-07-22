@@ -21,11 +21,15 @@ export const addHistoryItemToFirestore = async (item: HistoryPayload) => {
 };
 
 export const deleteHistoryItemFromFirestore = async (itemId: string) => {
-  if (!isFirebaseConfigured() || !db || !auth?.currentUser) {
-    throw new Error("Firebase is not configured or user is not authenticated.");
+  if (!isFirebaseConfigured() || !db) {
+    throw new Error("Firebase is not configured.");
+  }
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("User is not authenticated.");
   }
   
-  const docRef = doc(db, `users/${auth.currentUser.uid}/history`, itemId);
+  const docRef = doc(db, `users/${user.uid}/history`, itemId);
   return await deleteDoc(docRef);
 };
 

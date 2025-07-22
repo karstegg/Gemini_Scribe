@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Download, Loader2 } from 'lucide-react';
 import type { HistoryItem } from '@/types';
-import { getFileDownloadURL } from '@/lib/storageService';
+import { getDownloadUrlAction } from '@/app/actions/get-download-url';
+import { useToast } from '@/hooks/use-toast';
 
 type HistoryDetailProps = {
   item: HistoryItem;
@@ -15,24 +16,33 @@ type HistoryDetailProps = {
 
 export function HistoryDetail({ item, onBack }: HistoryDetailProps) {
   const [showCorrected, setShowCorrected] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const { toast } = useToast();
 
   const transcriptionToShow = showCorrected && item.correctedTranscription 
     ? item.correctedTranscription 
     : item.transcription;
   
   const handleDownload = async () => {
+    setIsDownloading(true);
     try {
-        const url = await getFileDownloadURL(item.fileStoragePath);
+        const url = await getDownloadUrlAction(item.fileStoragePath);
         const a = document.createElement('a');
         a.href = url;
-        a.target = "_blank"; // Or handle with fetch for same-tab download
+        a.target = "_blank";
         a.download = item.fileName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-    } catch(e) {
+    } catch(e: any) {
         console.error("Failed to get download URL", e);
-        // You could show a toast message here
+        toast({
+            variant: "destructive",
+            title: "Download Failed",
+            description: e.message || "Could not get the file download link."
+        })
+    } finally {
+        setIsDownloading(false);
     }
   }
 
@@ -76,9 +86,13 @@ export function HistoryDetail({ item, onBack }: HistoryDetailProps) {
                 <CardTitle>Original File</CardTitle>
             </CardHeader>
             <CardContent>
-                <Button onClick={handleDownload} variant="outline" className='w-full'>
-                    <Download className="mr-2 h-4 w-4" />
-                    Download {item.fileName}
+                <Button onClick={handleDownload} variant="outline" className='w-full' disabled={isDownloading}>
+                    {isDownloading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                        <Download className="mr-2 h-4 w-4" />
+                    )}
+                    {isDownloading ? 'Preparing...' : `Download ${item.fileName}`}
                 </Button>
             </CardContent>
         </Card>

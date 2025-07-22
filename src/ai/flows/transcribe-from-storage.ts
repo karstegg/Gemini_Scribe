@@ -3,13 +3,13 @@
 /**
  * @fileOverview This file defines a Genkit flow for transcribing an audio file stored in Firebase Storage.
  *
- * - transcribeFromStorage - A server action that takes a storage path and streams the transcription.
+ * - streamTranscriptionFromStorage - A server action that takes a storage path and streams the transcription.
  * - TranscribeFromStorageInput - The input type for the transcribeFromStorage action.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFileDownloadURL } from '@/lib/storageService';
+import { getFileDownloadURL } from '@/lib/storageService.server';
 
 const TranscribeFromStorageInputSchema = z.object({
   fileStoragePath: z

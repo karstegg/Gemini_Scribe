@@ -173,7 +173,8 @@ export default function ScribePage() {
       }
       
       addLog('Saving to history...', 'in_progress');
-      const historyPayload = {
+      // Construct a clean payload object, independent of the form state
+      const historyPayload: Omit<HistoryItem, 'id' | 'createdAt'> = {
         fileName: originalFile.name,
         fileStoragePath: fileStoragePath,
         transcription: fullTranscription,
@@ -209,6 +210,43 @@ export default function ScribePage() {
     }
   };
 
+  const readStream = async (
+    stream: ReadableStream<string>, 
+    options: TranscriptionOptions, 
+    fullPath: string, 
+    originalFile: File
+  ) => {
+    let fullTranscription = '';
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+
+    try {
+      while (true) {
+        if (isCancelledRef.current) {
+          await reader.cancel();
+          break;
+        }
+        const { value, done } = await reader.read();
+        if (done) {
+          break;
+        }
+        const chunk = decoder.decode(value, { stream: true });
+        fullTranscription += chunk;
+        setTranscriptionText((prev) => prev + chunk);
+      }
+    } catch (streamError) {
+      if (!isCancelledRef.current) {
+        console.error("Error reading from stream:", streamError);
+        setError("An error occurred while reading the transcription stream.");
+        setStatus('error');
+      }
+    } finally {
+        setIsStreaming(false);
+        if (!isCancelledRef.current) {
+           processInBackground(fullTranscription, options, fullPath, originalFile);
+        }
+    }
+  };
 
   const handleTranscribe = async (options: TranscriptionOptions) => {
     if (!file) return;
@@ -260,40 +298,8 @@ export default function ScribePage() {
       setStatus('success');
       setIsStreaming(true);
 
-      let fullTranscription = '';
-      const reader = stream.getReader();
-      const decoder = new TextDecoder();
-
-      const readStream = async () => {
-        try {
-          while (true) {
-            if (isCancelledRef.current) {
-              await reader.cancel();
-              break;
-            }
-            const { value, done } = await reader.read();
-            if (done) {
-              break;
-            }
-            const chunk = decoder.decode(value, { stream: true });
-            fullTranscription += chunk;
-            setTranscriptionText((prev) => prev + chunk);
-          }
-        } catch (streamError) {
-          if (!isCancelledRef.current) {
-            console.error("Error reading from stream:", streamError);
-            setError("An error occurred while reading the transcription stream.");
-            setStatus('error');
-          }
-        } finally {
-            setIsStreaming(false);
-            if (!isCancelledRef.current) {
-               processInBackground(fullTranscription, options, fullPath, file);
-            }
-        }
-      };
-      
-      readStream();
+      // Start reading the stream without blocking the component
+      readStream(stream, options, fullPath, file);
 
     } catch (e: any) {
       if (isCancelledRef.current) return;
@@ -303,10 +309,12 @@ export default function ScribePage() {
         errorMessage = 'File upload was canceled.';
       } else if (errorMessage.includes('storage/unauthorized')) {
         errorMessage = 'You do not have permission to upload files. Please check your storage security rules.';
-      } else if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
+      } else if (errorMessage.includes('503') || errorMessage.includes('overloaded') || errorMessage.includes('resource-exhausted')) {
         errorMessage = 'The AI service is currently busy or overloaded. Please try again in a few moments.';
       } else if (errorMessage.includes('429')) {
         errorMessage = "You've exceeded the rate limit for the AI model. Please try again later.";
+      } else if (errorMessage.includes('API limits') && errorMessage.includes('file size')) {
+        errorMessage = "The uploaded file exceeds the AI model's size limit. Please try a smaller file."
       }
       setError(errorMessage);
       setStatus('error');
