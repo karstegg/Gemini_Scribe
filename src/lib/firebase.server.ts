@@ -1,5 +1,3 @@
-'use server';
-
 // This file should only contain SERVER-SIDE Firebase Admin initialization.
 import { initializeApp as initializeAdminApp, getApps as getAdminApps, getApp as getAdminApp, cert, type App as AdminApp } from "firebase-admin/app";
 import { getStorage as getAdminStorage } from "firebase-admin/storage";
