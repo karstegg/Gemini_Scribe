@@ -5,12 +5,12 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "jAiszaSyA-_9TT93a74n5c6k_H8j_V8-PzZtYwE",
-  authDomain: "audio-transcription-serv-80134.firebaseapp.com",
-  projectId: "audio-transcription-serv-80134",
-  storageBucket: "audio-transcription-serv-80134.appspot.com",
-  messagingSenderId: "1062602787834",
-  appId: "1:1062602787834:web:0b72183c5095d6a2f183c4",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
 export function isFirebaseConfigured() {
