@@ -30,26 +30,32 @@ export type TranscribeAudioInput = z.infer<typeof TranscribeAudioInputSchema>;
 
 // New server action for streaming
 export async function streamTranscription(input: TranscribeAudioInput): Promise<ReadableStream<string>> {
-  const { stream } = ai.generateStream({
-    model: `googleai/${input.model}`,
-    prompt: [
-        {text: `Transcribe the following audio. Subject: ${input.subject}. Instructions: ${input.transcriptionInstructions}`},
-        {media: {url: input.audioDataUri}}
-    ],
-  });
+  try {
+    const { stream } = await ai.generateStream({
+      model: `googleai/${input.model}`,
+      prompt: [
+          {text: `Transcribe the following audio. Subject: ${input.subject}. Instructions: ${input.transcriptionInstructions}`},
+          {media: {url: input.audioDataUri}}
+      ],
+    });
 
-  const encoder = new TextEncoder();
-  const readableStream = new ReadableStream({
-    async start(controller) {
-      for await (const chunk of stream) {
-        const text = chunk.text;
-        if (text) {
-          controller.enqueue(encoder.encode(text));
+    const encoder = new TextEncoder();
+    const readableStream = new ReadableStream({
+      async start(controller) {
+        for await (const chunk of stream) {
+          const text = chunk.text;
+          if (text) {
+            controller.enqueue(encoder.encode(text));
+          }
         }
+        controller.close();
       }
-      controller.close();
-    }
-  });
+    });
 
-  return readableStream;
+    return readableStream;
+  } catch(e: any) {
+    console.error(`[GeminiScribe] Error in streamTranscription: ${e.message}`);
+    // Re-throw a more user-friendly error that the client can handle.
+    throw new Error(`The AI model failed to process the request. This can be due to API limits (e.g., file size, duration) or an internal model error. Details: ${e.message}`);
+  }
 }
