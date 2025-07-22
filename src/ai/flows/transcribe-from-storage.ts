@@ -6,7 +6,7 @@
  * - streamTranscriptionFromStorage - A server action that takes a storage path and streams the transcription.
  * - TranscribeFromStorageInput - The input type for the transcribeFromStorage action.
  */
-
+import 'dotenv/config';
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getFileDownloadURL } from '@/lib/storageService.server';
