@@ -23,9 +23,9 @@ export type HistoryItem = {
   fileStoragePath: string;
   createdAt: Timestamp;
   transcription: string;
-  correctedTranscription?: string;
-  summary?: string;
-  changelog?: string;
+  correctedTranscription?: string | null;
+  summary?: string | null;
+  changelog?: string | null;
   options: Omit<TranscriptionOptions, 'referenceFiles'> & {
     referenceFiles: { name: string; size: number }[];
   };

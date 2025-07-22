@@ -171,9 +171,9 @@ export default function ScribePage() {
         fileName: originalFile.name,
         fileStoragePath: fileStoragePath,
         transcription: fullTranscription,
-        correctedTranscription: correctedTranscription,
-        summary: summary,
-        changelog: changelog,
+        correctedTranscription: correctedTranscription || null,
+        summary: summary || null,
+        changelog: changelog || null,
         options: {
           model: options.model,
           subject: options.subject,
