@@ -144,9 +144,12 @@ export default function ScribePage() {
         summary = summaryResult.summary;
       }
 
-      const historyPayload: any = {
+      const historyPayload = {
         fileName: originalFile.name,
         transcription: fullTranscription,
+        correctedTranscription: correctedTranscription,
+        summary: summary,
+        changelog: changelog,
         options: {
           model: options.model,
           subject: options.subject,
@@ -162,12 +165,9 @@ export default function ScribePage() {
         },
       };
 
-      if (correctedTranscription) historyPayload.correctedTranscription = correctedTranscription;
-      if (summary) historyPayload.summary = summary;
-      if (changelog) historyPayload.changelog = changelog;
 
       if (isCancelledRef.current) return;
-      await addHistoryItemToFirestore(user, historyPayload);
+      await addHistoryItemToFirestore(historyPayload);
     } catch (e: any) {
        if (isCancelledRef.current) {
           console.error('Error in background processing after cancellation:', e);
@@ -230,13 +230,20 @@ export default function ScribePage() {
             reader.cancel();
             break;
           }
-          const { value, done } = await reader.read();
-          if (done) {
-            break;
+          try {
+            const { value, done } = await reader.read();
+            if (done) {
+              break;
+            }
+            const chunk = decoder.decode(value);
+            fullTranscription += chunk;
+            setTranscriptionText((prev) => prev + chunk);
+          } catch(streamError) {
+             console.error("Error reading from stream:", streamError);
+             setError("An error occurred while reading the transcription stream.");
+             setStatus('error');
+             break;
           }
-          const chunk = decoder.decode(value);
-          fullTranscription += chunk;
-          setTranscriptionText((prev) => prev + chunk);
         }
 
         setIsStreaming(false);
@@ -324,6 +331,7 @@ export default function ScribePage() {
                 onClick={form.handleSubmit(handleTranscribe)}
                 className="w-full"
                 size="lg"
+                disabled={status === 'processing' || isStreaming}
               >
                 <Bot className="mr-2 h-5 w-5" />
                 Start Transcription
