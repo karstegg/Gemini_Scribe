@@ -60,8 +60,12 @@ function getInitializedAdminApp(): AdminApp {
     }
     // Option 2: Use the service account file path (standard Firebase Admin approach)
     else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      // Don't parse it as JSON - it's a file path, let Firebase Admin SDK handle it
+      // Load the service account file and use cert() method
+      const fs = require('fs');
+      const serviceAccount = JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8'));
+      
       const firebaseAdminConfig = {
+        credential: cert(serviceAccount),
         storageBucket: storageBucket,
       };
       adminApp = initializeAdminApp(firebaseAdminConfig);
