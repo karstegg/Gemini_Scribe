@@ -1,5 +1,6 @@
 import { ref, uploadBytesResumable, type UploadTask } from 'firebase/storage';
-import { storage, auth } from './firebase';
+import { storage } from './firebase';
+import type { User } from 'firebase/auth';
 
 if (!storage) {
   throw new Error("Firebase Storage is not configured. File uploads will not work.");
@@ -7,13 +8,14 @@ if (!storage) {
 
 export const uploadFileToStorage = (
   file: File,
+  user: User,
   onProgress: (progress: number) => void
 ): { task: UploadTask; fullPath: string } => {
-  if (!auth?.currentUser) {
+  if (!user) {
     throw new Error('User is not authenticated.');
   }
 
-  const userId = auth.currentUser.uid;
+  const userId = user.uid;
   const fileId = `${Date.now()}-${file.name}`;
   const fullPath = `uploads/${userId}/${fileId}`;
   const storageRef = ref(storage, fullPath);

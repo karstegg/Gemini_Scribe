@@ -249,7 +249,7 @@ export default function ScribePage() {
   };
 
   const handleTranscribe = async (options: TranscriptionOptions) => {
-    if (!file) return;
+    if (!file || !user) return;
 
     isCancelledRef.current = false;
     setStatus('processing');
@@ -260,7 +260,7 @@ export default function ScribePage() {
     try {
       // 1. Upload to Firebase Storage
       addLog('Uploading audio file...', 'in_progress', 0);
-      const { task, fullPath } = uploadFileToStorage(file, (progress) => {
+      const { task, fullPath } = uploadFileToStorage(file, user, (progress) => {
         if (!isCancelledRef.current) {
           addLog('Uploading audio file...', 'in_progress', progress);
         }
@@ -365,11 +365,11 @@ export default function ScribePage() {
           <CardHeader>
             <CardTitle>New Transcription</CardTitle>
             <CardDescription>
-              Upload an audio file and configure the options below.
+              {isAuthReady && user ? 'Upload an audio file and configure the options below.' : 'Connecting to services...'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <FileUpload file={file} setFile={setFile} disabled={status === 'processing' || isStreaming} />
+            <FileUpload file={file} setFile={setFile} disabled={status === 'processing' || isStreaming || !isAuthReady || !user} />
             {file && (
               <FormProvider {...form}>
                 <TranscriptionOptionsForm />
@@ -382,10 +382,10 @@ export default function ScribePage() {
                 onClick={form.handleSubmit(handleTranscribe)}
                 className="w-full"
                 size="lg"
-                disabled={status === 'processing' || isStreaming}
+                disabled={status === 'processing' || isStreaming || !isAuthReady || !user}
               >
                 <Bot className="mr-2 h-5 w-5" />
-                Start Transcription
+                {status === 'processing' || isStreaming ? 'Processing...' : 'Start Transcription'}
               </Button>
             </CardFooter>
           )}
